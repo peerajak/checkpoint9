@@ -37,10 +37,14 @@ add_executable(single_thread_timer_node src/single_thread_timer.cpp)
 ament_target_dependencies(single_thread_timer_node 
 rclcpp sensor_msgs geometry_msgs)
 
+add_executable(executor_example_5_mutualyexclusive_multiple_node src/executor_example_5_mutualyexclusive_multiple.cpp)
+ament_target_dependencies(executor_example_5_mutualyexclusive_multiple_node rclcpp)
+
 install(TARGETS
    pre_approach_node
    understand_laser_node
    single_thread_timer_node
+   executor_example_5_mutualyexclusive_multiple_node
    DESTINATION lib/${PROJECT_NAME}
  )
 

@@ -31,7 +31,7 @@ private:
 
 
   void timer1_callback() {
-    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback");
+    RCLCPP_INFO(this->get_logger(), "Timer 1 Callback");
   }
 
   void move_robot(geometry_msgs::msg::Twist &msg) { publisher_->publish(msg); }

@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <numeric>
 #include <rclcpp/rclcpp.hpp>
 #include <tuple>
 #include <unistd.h>
@@ -14,29 +15,25 @@
 using namespace std::chrono_literals;
 using std::placeholders::_1;
 
-using namespace std::chrono_literals;
 
-#define pi 3.14
 
-float radian_from_scan_index(int scan_index) {
-  float rad;
-  if (659 >= scan_index && scan_index >= 495) {
-    rad = float(scan_index - 659) / 165 * (pi / 2);
-  } else if (164 >= scan_index && scan_index >= 0) {
-    rad = float(scan_index) / 165 * (pi / 2);
-  }
-  return rad;
+#define pi 3.141592654
+
+const float angle_min = -2.3561999797821045;
+const float angle_max = 2.3561999797821045;
+const float angle_increment = 0.004363333340734243;
+const int total_scan_index = 1081;
+const int half_scan_index = 540;
+
+
+float scan_index_to_radian(int scan_index){
+  return float(scan_index-half_scan_index)*angle_increment;
 }
 
-float degree_from_scan_index(int scan_index) {
-  float deg;
-  if (659 >= scan_index && scan_index >= 495) {
-    deg = float(scan_index - 659) / 165 * 90;
-  } else if (164 >= scan_index && scan_index >= 0) {
-    deg = float(scan_index) / 165 * 90;
-  }
-  return deg;
+float scan_index_to_degree(int scan_index){
+  return float(scan_index-half_scan_index)*angle_increment/pi*180;
 }
+
 
 class UnderstandLaser : public rclcpp::Node {
 public:
@@ -60,88 +57,49 @@ public:
         callback_group_1);
 
     publisher1_ =
-        this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
+        this->create_publisher<geometry_msgs::msg::Twist>("/robot/cmd_vel", 10);
   }
 
 private:
   void timer1_callback() {
-    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback Start");
+    RCLCPP_INFO(this->get_logger(), "Timer 1 Callback ");
     this->move_robot(ling);
-    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback End");
+  
   }
 
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
-    float speed_x = 0.1, radian_max = 0, radian_min = 0, radian_select,
-          value_select; // prev good value -0.1
-    float endanged_min = 0.8;
-    float radian_avoid_gap = pi / 6;
+    float mid_radian = 0.43633333;
 
-    std::vector<std::tuple<float, int>> front_ranges;
-
-    for (int i = 0; i < 165; i++) {
-      if (msg->ranges[i] < 200 && msg->ranges[i] > 0) {
-        front_ranges.push_back(std::tuple(msg->ranges[i], i));
-      }
+    // RCLCPP_INFO(this->get_logger(), "there are %d range
+    // values",msg->ranges.size());
+    if(is_wall_ahead(msg, mid_radian, 0.9)){
+        ling.angular.z = 0;
+         RCLCPP_INFO(this->get_logger(), "WALL detected");
+    }else{
+        ling.angular.z = 0.5;
     }
-
-    for (int i = 495; i < 660; i++) {
-      if (msg->ranges[i] < 200 && msg->ranges[i] > 0) {
-        front_ranges.push_back(std::tuple(msg->ranges[i], i));
-      }
-    }
-    sort(front_ranges.begin(), front_ranges.end());
-
-    RCLCPP_INFO(this->get_logger(), "sort max %d:%f,%f",
-                std::get<1>(front_ranges.back()),
-                std::get<0>(front_ranges.back()),
-                degree_from_scan_index(std::get<1>(front_ranges.back())));
-    RCLCPP_INFO(this->get_logger(), "sort min %d:%f,%f",
-                std::get<1>(front_ranges[0]), std::get<0>(front_ranges[0]),
-                degree_from_scan_index(std::get<1>(front_ranges[0])));
-
-    int min_index = std::get<1>(front_ranges[0]);
-    float min_value = std::get<0>(front_ranges[0]);
-
-    int max_index = std::get<1>(front_ranges.back());
-    float max_value = std::get<0>(front_ranges.back());
-
-    // RCLCPP_INFO(this->get_logger(),
-    //             "_direction %d:%f, %d:%f, %d:%f min at %d,%f max at %d,%f",
-    //             0,
-    //            msg->ranges[0], 360, msg->ranges[360], 659, msg->ranges[659],
-    //            min_index, *it_min, max_index, *it_max);
-
-    radian_max = radian_from_scan_index(max_index);
-    radian_min = radian_from_scan_index(min_index);
-    radian_select = radian_max;
-    value_select = max_value;
-    RCLCPP_INFO(this->get_logger(),
-                "radian with max distance %f, radian min distance %f",
-                radian_max, radian_min);
-    if (std::abs(radian_max - radian_min) < radian_avoid_gap) {
-
-      auto ita = front_ranges.begin();
-      do {
-        if (std::get<0>(*ita) > endanged_min) {
-          radian_select = radian_from_scan_index(std::get<1>(*ita));
-          value_select = std::get<0>(*ita);
-        }
-        ita++;
-        // RCLCPP_INFO(this->get_logger(), "selecting new angle");
-      } while (std::abs(radian_select - radian_min) < radian_avoid_gap &&
-               ita < front_ranges.end());
-    }
-    if (value_select < endanged_min) {
-      RCLCPP_INFO(this->get_logger(), "sharp turning");
-      radian_select = pi / 2;
-    }
-    RCLCPP_INFO(this->get_logger(), "radian select %f,%f", radian_select,
-                value_select);
-
-    ling.angular.z = 0.5 * radian_select;
-    ling.linear.x = 0; // speed_x;
   }
+
+  bool is_wall_ahead(const sensor_msgs::msg::LaserScan::SharedPtr &msg, float mid_radian, float obstacle_thresh){
+      int number_of_mid_scan_lines = (int)(mid_radian/angle_increment); 
+      int begin_mid_scan_index = half_scan_index - int(number_of_mid_scan_lines/2);
+      int end_mid_scan_index=  half_scan_index + int(number_of_mid_scan_lines/2);
+      float average_range;
+      int total_lines=0;
+   
+     
+      for (int i = begin_mid_scan_index ; i< end_mid_scan_index ;i++){
+        total_lines++;
+        average_range += msg->ranges[i];
+      }
+      average_range /= total_lines;
+         RCLCPP_INFO(this->get_logger(), "begin_mid_scan_index %d end_mid_scan_index %d average_range %f",
+          begin_mid_scan_index, end_mid_scan_index, average_range);
+     return average_range < obstacle_thresh;// if average_range is less than threshold, then yes! wall ahead.
+  }
+
+
   void move_robot(geometry_msgs::msg::Twist &msg) { publisher1_->publish(msg); }
   geometry_msgs::msg::Twist ling;
   rclcpp::CallbackGroup::SharedPtr callback_group_1;
@@ -170,21 +128,38 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 /*
-angle_min: 0.0
-angle_max: 6.28000020980835
-angle_increment: 0.009529590606689453
+header:
+  stamp:
+    sec: 85
+    nanosec: 408000000
+  frame_id: robot_front_laser_link
+angle_min: -2.3561999797821045
+angle_max: 2.3561999797821045
+angle_increment: 0.004363333340734243
+time_increment: 0.0
+scan_time: 0.0
+range_min: 0.05999999865889549
+range_max: 20.0
+ranges:
 
-Thus there are 6.28/0.00953 = 659 lines for 360 degree (6.28=2pi)
-0,659 degree msg->range[0] start from x axis,
-164 degree msg->range[164] means x +90degree,
-495 degree msg->range[495] means x -90degree.
 
-case 1. 0-164 has 165 lines of scan
-0-164 is 0-pi/2
-radian = (direction_/164)*(pi/2)
+There are 1081 scan indexes.
 
-case 2 495-659 has 165 lines of scan
-495-659 is -pi/2-0
-radian = (direction-659)/164*pi/2
 
+angle_min: -2.3561999797821045  (-0.75pi)
+angle_max: 2.3561999797821045  (0.75pi)
+angle_increment: 0.004363333340734243
+
+Thus there are 4.7124/0.00436333 = 1080 lines for -135 to 135 degree
+degree msg->range[0] start from -0.75pi from x axis,
+
+
+case 1. 0-540 has 541 lines of scan is -0.75pi to 0 radian
+radian = (scan_index-540)*angle_increment
+
+case 2 541-1080 has 540 lines of scan is 0 to 0.75 radian
+radian = (scan_index-540)*angle_increment
+
+both case can be combined into one case.
+radian = (scan_index-540)*angle_increment
 */

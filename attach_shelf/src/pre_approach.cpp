@@ -18,27 +18,23 @@ using std::placeholders::_1;
 #include <rclcpp/rclcpp.hpp>
 using namespace std::chrono_literals;
 
-#define pi 3.14
+#define pi 3.141592654
 
-float radian_from_scan_index(int scan_index) {
-  float rad;
-  if (659 >= scan_index && scan_index >= 495) {
-    rad = float(scan_index - 659) / 165 * (pi / 2);
-  } else if (164 >= scan_index && scan_index >= 0) {
-    rad = float(scan_index) / 165 * (pi / 2);
-  }
-  return rad;
+const float angle_min = -2.3561999797821045;
+const float angle_max = 2.3561999797821045;
+const float angle_increment = 0.004363333340734243;
+const int total_scan_index = 1081;
+const int half_scan_index = 540;
+
+
+float scan_index_to_radian(int scan_index){
+  return float(scan_index-half_scan_index)*angle_increment;
 }
 
-float degree_from_scan_index(int scan_index) {
-  float deg;
-  if (659 >= scan_index && scan_index >= 495) {
-    deg = float(scan_index - 659) / 165 * 90;
-  } else if (164 >= scan_index && scan_index >= 0) {
-    deg = float(scan_index) / 165 * 90;
-  }
-  return deg;
+float scan_index_to_degree(int scan_index){
+  return float(scan_index-half_scan_index)*angle_increment/pi*180;
 }
+
 
 class Pre_Approach : public rclcpp::Node {
 public:
@@ -69,20 +65,60 @@ public:
 
     publisher1_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/robot/cmd_vel", 10);
+
+    position_reached = false;
   }
 
 private:
   void timer1_callback() {
-    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback Start");
-    //this->move_robot(ling);
-    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback End");
+    RCLCPP_INFO(this->get_logger(), "Timer 1 Callback ");
+    this->move_robot(ling);
+   
   }
 
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
+    float mid_radian = 0.43633333;
+
+    // RCLCPP_INFO(this->get_logger(), "there are %d range
+    // values",msg->ranges.size());
+    if(position_reached){
+    // Use odom to calculate the degree differece from current robot angle, and the desired degree
+    }else{
+        if(is_wall_ahead(msg, mid_radian, this->obstacle)){
+            ling.linear.x = 0;
+            ling.angular.z = 0;
+            position_reached = true;
+            RCLCPP_INFO(this->get_logger(), "WALL detected");
+        }else{
+            ling.linear.x = 0.5;
+            ling.angular.z = 0;
+            RCLCPP_INFO(this->get_logger(), "Clear road ahead");
+        }
+    }
   
   }
   void move_robot(geometry_msgs::msg::Twist &msg) { publisher1_->publish(msg); }
+
+  bool is_wall_ahead(const sensor_msgs::msg::LaserScan::SharedPtr &msg, float mid_radian, float obstacle_thresh){
+      int number_of_mid_scan_lines = (int)(mid_radian/angle_increment); 
+      int begin_mid_scan_index = half_scan_index - int(number_of_mid_scan_lines/2);
+      int end_mid_scan_index=  half_scan_index + int(number_of_mid_scan_lines/2);
+      float average_range;
+      int total_lines=0;
+   
+     
+      for (int i = begin_mid_scan_index ; i< end_mid_scan_index ;i++){
+        total_lines++;
+        average_range += msg->ranges[i];
+      }
+      average_range /= total_lines;
+         RCLCPP_INFO(this->get_logger(), "begin_mid_scan_index %d end_mid_scan_index %d average_range %f",
+          begin_mid_scan_index, end_mid_scan_index, average_range);
+     return average_range < obstacle_thresh;// if average_range is less than threshold, then yes! wall ahead.
+  }
+
+
   geometry_msgs::msg::Twist ling;
   rclcpp::CallbackGroup::SharedPtr callback_group_1;
   rclcpp::CallbackGroup::SharedPtr callback_group_2;
@@ -92,6 +128,7 @@ private:
   int direction_ = 360; //[0-719]
   float obstacle;
   float degrees;
+  bool position_reached;
 };
 
 int main(int argc, char *argv[]) {
