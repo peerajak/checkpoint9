@@ -67,6 +67,7 @@ public:
         this->create_publisher<geometry_msgs::msg::Twist>("/robot/cmd_vel", 10);
 
     position_reached = false;
+    nstate = move_to_goal;
   }
 
 private:
@@ -129,6 +130,7 @@ private:
   float obstacle;
   float degrees;
   bool position_reached;
+  enum nodeState { move_to_goal, rotate, tf_label, move_under_shelf, load_shelf } nstate;
 };
 
 int main(int argc, char *argv[]) {
