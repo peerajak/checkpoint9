@@ -7,12 +7,15 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(custom_interfaces REQUIRED)
+
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -25,26 +28,34 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
+
+
+
+
+
 add_executable(pre_approach_node src/pre_approach.cpp)
 ament_target_dependencies(pre_approach_node 
 rclcpp sensor_msgs geometry_msgs nav_msgs)
+
+
+add_executable(pre_approach_v2_node src/pre_approach_v2.cpp)
+ament_target_dependencies(pre_approach_v2_node
+rclcpp sensor_msgs geometry_msgs nav_msgs)
+
+add_executable(approach_service_server_node src/approach_service_server.cpp)
+ament_target_dependencies(approach_service_server_node
+rclcpp sensor_msgs geometry_msgs nav_msgs std_msgs custom_interfaces tf2 tf2_ros)
 
 add_executable(understand_laser_node src/understand_laser.cpp)
 ament_target_dependencies(understand_laser_node 
 rclcpp sensor_msgs geometry_msgs)
 
-add_executable(single_thread_timer_node src/single_thread_timer.cpp)
-ament_target_dependencies(single_thread_timer_node 
-rclcpp sensor_msgs geometry_msgs)
-
-add_executable(executor_example_5_mutualyexclusive_multiple_node src/executor_example_5_mutualyexclusive_multiple.cpp)
-ament_target_dependencies(executor_example_5_mutualyexclusive_multiple_node rclcpp)
 
 install(TARGETS
    pre_approach_node
+   pre_approach_v2_node
    understand_laser_node
-   single_thread_timer_node
-   executor_example_5_mutualyexclusive_multiple_node
+   approach_service_server_node
    DESTINATION lib/${PROJECT_NAME}
  )
 
