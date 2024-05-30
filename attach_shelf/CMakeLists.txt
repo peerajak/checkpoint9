@@ -40,7 +40,7 @@ rclcpp sensor_msgs geometry_msgs nav_msgs)
 
 add_executable(pre_approach_v2_node src/pre_approach_v2.cpp)
 ament_target_dependencies(pre_approach_v2_node
-rclcpp sensor_msgs geometry_msgs nav_msgs)
+rclcpp sensor_msgs geometry_msgs nav_msgs custom_interfaces)
 
 add_executable(approach_service_server_node src/approach_service_server.cpp)
 ament_target_dependencies(approach_service_server_node

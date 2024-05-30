@@ -18,6 +18,9 @@ using std::placeholders::_1;
 #include <cmath>
 #include <geometry_msgs/msg/point.h>
 #include <rclcpp/rclcpp.hpp>
+#include "custom_interfaces/srv/go_to_loading.hpp"
+
+using GoToLoading = custom_interfaces::srv::GoToLoading;
 using namespace std::chrono_literals;
 
 #define pi 3.141592654
@@ -27,7 +30,7 @@ const float angle_max = 2.3561999797821045;
 const float angle_increment = 0.004363333340734243;
 const int total_scan_index = 1081;
 const int half_scan_index = 540;
-enum nodeState { move_to_goal, rotate, move_under_shelf, load_shelf } nstate;
+enum nodeState { move_to_goal, rotate, approach_shelf, end_program } nstate;
 
 float scan_index_to_radian(int scan_index){
   return float(scan_index-half_scan_index)*angle_increment;
@@ -196,7 +199,7 @@ private:
     ling.linear.x = 0.0;
     ling.angular.z =0.0;
     move_robot(ling);
-    nstate = move_under_shelf;
+    nstate = approach_shelf;
   }
 
   void timer1_callback() {
@@ -249,6 +252,52 @@ private:
 
 };
 
+
+class ServiceClient : public rclcpp::Node {
+private:
+  rclcpp::Client<GoToLoading>::SharedPtr client_;
+  rclcpp::TimerBase::SharedPtr timer_;
+    void timer_callback() {
+        while (!client_->wait_for_service(1s)) {
+        if (!rclcpp::ok()) {
+            RCLCPP_ERROR(
+                this->get_logger(),
+                "Client interrupted while waiting for service. Terminating...");
+            return;
+        }
+        RCLCPP_INFO(this->get_logger(),
+                    "Service Unavailable. Waiting for Service...");
+        }
+
+    auto request = std::make_shared<GoToLoading::Request>();
+
+
+    auto result_future = client_->async_send_request(
+        request, std::bind(&ServiceClient::response_callback, this,
+                           std::placeholders::_1));
+  }
+  void
+  response_callback(rclcpp::Client<GoToLoading>::SharedFuture future) {
+    auto status = future.wait_for(1s);
+    if (status == std::future_status::ready) {
+      RCLCPP_INFO(this->get_logger(), "Result: success");
+      nstate = end_program;
+    } else {
+      RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
+    }
+  }
+
+public:
+  ServiceClient() : Node("service_client") {
+    client_ = this->create_client<GoToLoading>("approach_shelf");
+    timer_ = this->create_wall_timer(
+        1s, std::bind(&ServiceClient::timer_callback, this));
+  }
+
+};
+
+
+
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
@@ -256,6 +305,9 @@ int main(int argc, char *argv[]) {
       std::make_shared<MoveToGoal>();
   std::shared_ptr<Rotation> rotation_node =
       std::make_shared<Rotation>();
+
+  std::shared_ptr<ServiceClient> service_client_node = 
+  std::make_shared<ServiceClient>();
   // Initialize one MultiThreadedExecutor object
   rclcpp::executors::MultiThreadedExecutor executor;
   nstate = move_to_goal;
@@ -275,12 +327,19 @@ int main(int argc, char *argv[]) {
              executor.spin_some();
               if(nstate != rotate){
                  executor.remove_node(rotation_node);                 
-                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");                
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");  
+                 executor.add_node(service_client_node);            
              }    
         break;
-        case move_under_shelf: 
+        case approach_shelf: 
+             executor.spin_some();
+             if(nstate != approach_shelf){
+                 executor.remove_node(service_client_node);                 
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");             
+             }   
         break;
-        case load_shelf:
+        case  end_program:
+         RCLCPP_INFO(move_to_goal_node->get_logger(), "State: End Program");     
         break;
         }
 
