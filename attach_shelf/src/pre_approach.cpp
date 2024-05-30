@@ -27,7 +27,7 @@ const float angle_max = 2.3561999797821045;
 const float angle_increment = 0.004363333340734243;
 const int total_scan_index = 1081;
 const int half_scan_index = 540;
-enum nodeState { move_to_goal, rotate, tf_label, move_under_shelf, load_shelf } nstate;
+enum nodeState { move_to_goal, rotate, move_under_shelf, load_shelf } nstate;
 
 float scan_index_to_radian(int scan_index){
   return float(scan_index-half_scan_index)*angle_increment;
@@ -196,7 +196,7 @@ private:
     ling.linear.x = 0.0;
     ling.angular.z =0.0;
     move_robot(ling);
-    nstate = tf_label;
+    nstate = move_under_shelf;
   }
 
   void timer1_callback() {
@@ -260,7 +260,8 @@ int main(int argc, char *argv[]) {
   rclcpp::executors::MultiThreadedExecutor executor;
   nstate = move_to_goal;
   executor.add_node(move_to_goal_node);
-  while(rclcpp::ok())  {
+  bool work_finish = false;
+  while(rclcpp::ok() && !work_finish)  {
       switch(nstate){
           case move_to_goal:
              executor.spin_some();
@@ -274,13 +275,11 @@ int main(int argc, char *argv[]) {
              executor.spin_some();
               if(nstate != rotate){
                  executor.remove_node(rotation_node);                 
-                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");
-                 //executor.add_node(rotation_node);  
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");                
              }    
         break;
-        case tf_label:
-        break;
         case move_under_shelf:
+           work_finish = true;
         break;
         case load_shelf:
         break;
