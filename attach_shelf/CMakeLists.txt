@@ -27,7 +27,7 @@ endif()
 
 add_executable(pre_approach_node src/pre_approach.cpp)
 ament_target_dependencies(pre_approach_node 
-rclcpp sensor_msgs geometry_msgs)
+rclcpp sensor_msgs geometry_msgs nav_msgs)
 
 add_executable(understand_laser_node src/understand_laser.cpp)
 ament_target_dependencies(understand_laser_node 
