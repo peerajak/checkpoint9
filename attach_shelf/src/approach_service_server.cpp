@@ -64,7 +64,9 @@ Callback group
 class MidLegsTFService : public rclcpp::Node {
 public:
   MidLegsTFService() : Node("mid_legs_tf_service_node") {
-   
+   //------ 0. internal members ----------------//
+   nstate = service_deactivated;
+   //------ callback group together -------------//
    
    callback_group_1_timer = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -115,6 +117,24 @@ public:
   }
 
 private:
+  //------- 0. internal use --------------//
+  //_service_activated is
+  // if completed, or not started, delete those bands, and TFs. Because future clients may use this service on different scenarioes
+  // if service is called for the first time by a new client.
+  enum serviceState { service_activated, tf_published, approach_shelf,
+   service_completed_success,service_completed_failure, service_deactivated } nstate;
+
+
+ /*     attach_to_shelf (true/false): 
+If True, 
+  - the service will do the final approach. This is, it will publish the cart_frame transform, 
+  - it will move the robot underneath the shelf and it will lift it. 
+If False,
+  - the robot will only publish the cart_frame transform, but it will not do the final approach.
+  */        
+  bool attach_to_shelf;
+
+
   //------- 1. timer_1 related -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_1_timer;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_1_twist;
@@ -146,8 +166,9 @@ private:
   //------- 1. timer_1 related Functions -----------//
   void timer1_callback() {
     RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback Start");
-    this->move_robot(ling);
-    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback End");
+        if(nstate == approach_shelf){
+            this->move_robot(ling);     
+         }
   }
   void move_robot(geometry_msgs::msg::Twist &msg) { publisher_1_twist->publish(msg); }
   //------- 2. Odom related  Functions -----------//
@@ -170,16 +191,53 @@ private:
   }
   //------- 3. Laser related Functions -----------//
  void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-    RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
+      switch (nstate) {
+      case service_activated:
+      //1. get current position from odom_callback
+      //2. perform laser measurement, find the band between two legs
+      //3. calculate the position( in world space) of middle of the two leg and statically tf publish it.
+      //4. set nstate to tf_published
+      nstate = tf_published;
+      break;
+      case tf_published:
+        //perform switching state base on bool attach_to_shelf 
+        if(attach_to_shelf){
+          nstate = approach_shelf;
+        }else{
+        nstate = service_deactivated;
+        }
+      break;
+      case approach_shelf:
+      //move to under shelf using tf
+      //only set ling. no publish to cmd_vel
+      // once the robot is in desired position, set nstate to service_completed success/failure
+      break;
+      case service_completed_success:
+      // notify service callback to send respond
+      // set nstate to service_deactivated
+      break;
+      case service_completed_failure:
+      // notify service callback to send respond
+      // set nstate to service_deactivated
+      break;
+      case service_deactivated:
+      //perform remove bands, and TFs for future use.
+      break;
+      }
+        RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
+
+
     
   }
  //--------4. Service related Functions-----------//
   void
   service_callback(const std::shared_ptr<GoToLoading::Request> request,
                    const std::shared_ptr<GoToLoading::Response> response) {
-   // RCLCPP_INFO(this->get_logger(), "laser frame id %s",
+    RCLCPP_INFO(this->get_logger(), "Service Callback");
+    nstate = service_activated;
        //         request->laser_data.header.frame_id.c_str());
-  
+      response->complete = true;
+      //_service_activated = false;
   }
 
 

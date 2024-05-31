@@ -270,6 +270,7 @@ private:
         }
 
     auto request = std::make_shared<GoToLoading::Request>();
+    request->attach_to_shelf = true;
 
 
     auto result_future = client_->async_send_request(
@@ -339,7 +340,8 @@ int main(int argc, char *argv[]) {
              }   
         break;
         case  end_program:
-         RCLCPP_INFO(move_to_goal_node->get_logger(), "State: End Program");     
+         RCLCPP_INFO(move_to_goal_node->get_logger(), "State: End Program");   
+         work_finish = true;  
         break;
         }
 

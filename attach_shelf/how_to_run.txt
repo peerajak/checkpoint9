@@ -8,3 +8,8 @@ source ~/catkin_ws/devel/setup.bash
 roslaunch load_params load_params_base.launch
 source /opt/ros/galactic/setup.bash
 ros2 run ros1_bridge parameter_bridge
+
+
+----------------------------
+ros2 run attach_shelf approach_service_server_node
+ros2 launch attach_shelf pre_approach_v2.launch.xml obstacle:=0.3 degrees:=-90.0

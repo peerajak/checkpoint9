@@ -34,6 +34,110 @@ float scan_index_to_degree(int scan_index){
   return float(scan_index-half_scan_index)*angle_increment/pi*180;
 }
 
+class band {
+private:
+  float _min_allow_range_value;
+  float _max_allow_range_value;
+  float _min_allow_intensity_value;
+  int _size;
+  std::vector<float> msg_radian;
+  std::vector<float> msg_range_values;
+
+
+public:
+  enum insertable_state { insertable, full } _state;
+
+  band(float min_allow_range, float max_allow_range, float min_allow_intensity)
+      : _min_allow_range_value(min_allow_range), _max_allow_range_value(max_allow_range),
+       _min_allow_intensity_value(min_allow_intensity), _size(0),
+        _state(band::insertable_state::insertable) {}
+
+  int insert(float a_radian, float range_value, float intensity_value) {
+    float interested_value = std::min(range_value, _max_allow_range_value);
+    //if intensity is not strong enough, it is not the baricate
+    float _only_strong_intensity_min_allow_range_value = intensity_value > _min_allow_intensity_value?
+    _min_allow_range_value: 0;
+    if (interested_value > _only_strong_intensity_min_allow_range_value) {
+      if (msg_radian.size() == 0) { // firstly pushed
+        msg_radian.push_back(a_radian);
+        msg_range_values.push_back(interested_value);
+        _size++;
+        _state = band::insertable_state::insertable;
+        return 0;
+      }
+      // check consecutivte index
+      auto find_it = std::find_if(
+          msg_radian.begin(), msg_radian.end(),
+          [&a_radian](float r) { return std::abs(r - a_radian) < 0.1; });
+      if (find_it < msg_radian.end()) {
+        msg_radian.push_back(a_radian);
+        msg_range_values.push_back(interested_value);
+        _size++;
+        _state = band::insertable_state::insertable;
+        return 0;
+      } else {
+        _state = band::insertable_state::full;
+        return 1;
+      }
+
+    } else {
+      return 2;
+    }
+  }
+
+  std::tuple<float, float> get_boundary() { // return min,max
+
+    if (msg_radian.size() > 1)
+      return std::tuple<float, float>(msg_radian[0], msg_radian.back());
+    if (msg_radian.size() == 1)
+      return std::tuple<float, float>(msg_radian[0], msg_radian[0]);
+
+    return std::tuple<float, float>(0, 0);
+  }
+
+  float get_deepest_value() {
+    auto it_max = std::max_element(msg_range_values.begin(), msg_range_values.end());
+    return *it_max;
+  }
+  std::tuple<float, float> get_deepest_radian() {
+    auto it_max = std::max_element(msg_range_values.begin(), msg_range_values.end());
+    int deepest_radian = msg_radian[std::distance(msg_range_values.begin(), it_max)];
+
+    return std::tuple<float, float>(deepest_radian, *it_max);
+  }
+  std::tuple<float, float> get_shallowest_radian() {
+    auto it_min = std::min_element(msg_range_values.begin(), msg_range_values.end());
+    int shallowest_radian =
+        msg_radian[std::distance(msg_range_values.begin(), it_min)];
+
+    return std::tuple<float, float>(shallowest_radian, *it_min);
+  }
+
+  std::tuple<float, float> get_broadest_mid_radian() {
+    float broadest_radian = (msg_radian[0] + msg_radian.back()) / 2;
+    /*auto find_it = std::find_if(msg_radian.begin(), msg_radian.end(),
+                                [&broadest_radian](float r) {
+                                  return std::abs(r - broadest_radian) < 0.1;
+                                });*/
+    return std::tuple<float, float>(broadest_radian, get_statistic_min());
+  }
+
+  int get_size() { return _size; }
+  unsigned int get_msg_radian_size() { return msg_radian.size(); }
+  unsigned int get_msg_range_values_size() { return msg_range_values.size(); }
+
+  float get_statistic_max() {
+    return *std::max_element(msg_range_values.begin(), msg_range_values.end());
+  }
+  float get_statistic_min() {
+    return *std::min_element(msg_range_values.begin(), msg_range_values.end());
+  }
+  float get_statistic_mean() {
+    return float(std::accumulate(msg_range_values.begin(), msg_range_values.end(), 0)) /
+           _size;
+  }
+};
+
 
 class UnderstandLaser : public rclcpp::Node {
 public:
@@ -69,6 +173,7 @@ private:
 
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
+    /*
     float mid_radian = 0.43633333;
 
     // RCLCPP_INFO(this->get_logger(), "there are %d range
@@ -79,6 +184,53 @@ private:
     }else{
         ling.angular.z = 0.5;
     }
+
+    std::vector<band> aggregation_of_bands;
+    std::vector<std::tuple<float, int>> front_ranges;
+    for (int i = 495; i < 660; i++) {
+      // if (msg->ranges[i] < 200 && msg->ranges[i] > wide_band_min) {
+      front_ranges.push_back(std::tuple<float, int>(msg->ranges[i], i));
+      // }
+    }
+    for (int i = 0; i < 165; i++) {
+      // if (msg->ranges[i] < 200 && msg->ranges[i] > wide_band_min) {
+      front_ranges.push_back(std::tuple<float, int>(msg->ranges[i], i));
+      //}
+    }
+
+    auto ita = front_ranges.begin();
+    std::shared_ptr<band> b_band(new band(tolerated_min, interested_max));
+
+    while (ita < front_ranges.end()) {
+
+      while (ita < front_ranges.end() &&
+             b_band->_state == band::insertable_state::insertable) {
+        float inserting_radian = radian_from_scan_index(std::get<1>(*ita));
+        RCLCPP_DEBUG(this->get_logger(), "inserting radian %f:value %f",
+                     inserting_radian, std::get<0>(*ita));
+        int insert_result = b_band->insert(inserting_radian, std::get<0>(*ita));
+        if (insert_result == 0) {
+          RCLCPP_DEBUG(this->get_logger(), "inserted");
+        } else {
+          RCLCPP_DEBUG(this->get_logger(), "NOT inserted %d", insert_result);
+        }
+        ita++;
+      }
+
+      std::tuple<float, float> boundary_aband = b_band->get_boundary();
+      RCLCPP_DEBUG(this->get_logger(),
+                   "inserted a band (%f,%f) size%d with max:value %f",
+                   std::get<0>(boundary_aband), std::get<1>(boundary_aband),
+                   b_band->get_size(), b_band->get_statistic_max());
+
+      if (b_band->get_size() >= smallest_allowable_band) {
+        aggregation_of_bands.push_back(*b_band);
+      }
+
+      if (b_band->_state == band::insertable_state::full) {
+        b_band = std::make_shared<band>(tolerated_min, interested_max);
+      }
+    }*/
   }
 
   bool is_wall_ahead(const sensor_msgs::msg::LaserScan::SharedPtr &msg, float mid_radian, float obstacle_thresh){
