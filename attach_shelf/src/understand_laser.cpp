@@ -11,6 +11,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <tuple>
 #include <unistd.h>
+#include <vector>
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
@@ -34,110 +35,68 @@ float scan_index_to_degree(int scan_index){
   return float(scan_index-half_scan_index)*angle_increment/pi*180;
 }
 
-class band {
-private:
-  float _min_allow_range_value;
-  float _max_allow_range_value;
-  float _min_allow_intensity_value;
-  int _size;
-  std::vector<float> msg_radian;
-  std::vector<float> msg_range_values;
 
-
-public:
+  
+class group_of_laser{
+  public:
   enum insertable_state { insertable, full } _state;
-
-  band(float min_allow_range, float max_allow_range, float min_allow_intensity)
-      : _min_allow_range_value(min_allow_range), _max_allow_range_value(max_allow_range),
-       _min_allow_intensity_value(min_allow_intensity), _size(0),
-        _state(band::insertable_state::insertable) {}
-
-  int insert(float a_radian, float range_value, float intensity_value) {
-    float interested_value = std::min(range_value, _max_allow_range_value);
-    //if intensity is not strong enough, it is not the baricate
-    float _only_strong_intensity_min_allow_range_value = intensity_value > _min_allow_intensity_value?
-    _min_allow_range_value: 0;
-    if (interested_value > _only_strong_intensity_min_allow_range_value) {
-      if (msg_radian.size() == 0) { // firstly pushed
-        msg_radian.push_back(a_radian);
-        msg_range_values.push_back(interested_value);
-        _size++;
-        _state = band::insertable_state::insertable;
+  int size;
+  group_of_laser(float least_intensity):_least_intensity(least_intensity),_state( group_of_laser::insertable_state::insertable){size=0; }
+  int insert(float a_radian, float a_range, float an_intensity){
+    if(an_intensity > _least_intensity && _state ==  group_of_laser::insertable_state::insertable){//insert only if this is true
+      if(size == 0){
+        ranges_vector.push_back(a_range);
+        radians_vector.push_back(a_radian);
+        intensity_vector.push_back(an_intensity);
+        size++;
+        _state =  group_of_laser::insertable_state::insertable;
         return 0;
-      }
-      // check consecutivte index
-      auto find_it = std::find_if(
-          msg_radian.begin(), msg_radian.end(),
-          [&a_radian](float r) { return std::abs(r - a_radian) < 0.1; });
-      if (find_it < msg_radian.end()) {
-        msg_radian.push_back(a_radian);
-        msg_range_values.push_back(interested_value);
-        _size++;
-        _state = band::insertable_state::insertable;
-        return 0;
-      } else {
-        _state = band::insertable_state::full;
+      }else{
+        auto find_it = std::find_if(
+          radians_vector.begin(), radians_vector.end(),
+          [&a_radian](float r) { return std::abs(r - a_radian) < 0.17; });
+         if(find_it < radians_vector.end()){
+            ranges_vector.push_back(a_range);
+            radians_vector.push_back(a_radian);
+            intensity_vector.push_back(an_intensity);
+            size++;
+            _state =  group_of_laser::insertable_state::insertable;
+            return 0;
+         }else {
+        _state =  group_of_laser::insertable_state::full;
         return 1;
+         }
       }
-
+     
     } else {
       return 2;
     }
   }
+  
+  
 
-  std::tuple<float, float> get_boundary() { // return min,max
-
-    if (msg_radian.size() > 1)
-      return std::tuple<float, float>(msg_radian[0], msg_radian.back());
-    if (msg_radian.size() == 1)
-      return std::tuple<float, float>(msg_radian[0], msg_radian[0]);
-
-    return std::tuple<float, float>(0, 0);
+  std::tuple<float, float> get_min_radian_of_the_group_and_corresponding_distance(){
+      auto it_min = std::min_element(radians_vector.begin(), radians_vector.end());
+      float corresponding_distance =
+        ranges_vector[std::distance(radians_vector.begin(), it_min)];
+      float min_radian = *it_min;
+      return std::tuple<float, float>(min_radian, corresponding_distance);
   }
-
-  float get_deepest_value() {
-    auto it_max = std::max_element(msg_range_values.begin(), msg_range_values.end());
-    return *it_max;
+  std::tuple<float, float> get_max_radian_of_the_group_and_corresponding_distance(){
+      auto it_max = std::max_element(radians_vector.begin(), radians_vector.end());
+      float corresponding_distance =
+        ranges_vector[std::distance(radians_vector.begin(), it_max)];
+      float max_radian = *it_max;
+      return std::tuple<float, float>(max_radian, corresponding_distance);
   }
-  std::tuple<float, float> get_deepest_radian() {
-    auto it_max = std::max_element(msg_range_values.begin(), msg_range_values.end());
-    int deepest_radian = msg_radian[std::distance(msg_range_values.begin(), it_max)];
+  private:
+  
+  float _least_intensity;
+  std::vector<float> ranges_vector;
+  std::vector<float> radians_vector;
+  std::vector<float> intensity_vector;
 
-    return std::tuple<float, float>(deepest_radian, *it_max);
-  }
-  std::tuple<float, float> get_shallowest_radian() {
-    auto it_min = std::min_element(msg_range_values.begin(), msg_range_values.end());
-    int shallowest_radian =
-        msg_radian[std::distance(msg_range_values.begin(), it_min)];
-
-    return std::tuple<float, float>(shallowest_radian, *it_min);
-  }
-
-  std::tuple<float, float> get_broadest_mid_radian() {
-    float broadest_radian = (msg_radian[0] + msg_radian.back()) / 2;
-    /*auto find_it = std::find_if(msg_radian.begin(), msg_radian.end(),
-                                [&broadest_radian](float r) {
-                                  return std::abs(r - broadest_radian) < 0.1;
-                                });*/
-    return std::tuple<float, float>(broadest_radian, get_statistic_min());
-  }
-
-  int get_size() { return _size; }
-  unsigned int get_msg_radian_size() { return msg_radian.size(); }
-  unsigned int get_msg_range_values_size() { return msg_range_values.size(); }
-
-  float get_statistic_max() {
-    return *std::max_element(msg_range_values.begin(), msg_range_values.end());
-  }
-  float get_statistic_min() {
-    return *std::min_element(msg_range_values.begin(), msg_range_values.end());
-  }
-  float get_statistic_mean() {
-    return float(std::accumulate(msg_range_values.begin(), msg_range_values.end(), 0)) /
-           _size;
-  }
-};
-
+  };
 
 class UnderstandLaser : public rclcpp::Node {
 public:
@@ -162,75 +121,60 @@ public:
 
     publisher1_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/robot/cmd_vel", 10);
+
+    tf_published = false;
   }
 
 private:
   void timer1_callback() {
-    RCLCPP_INFO(this->get_logger(), "Timer 1 Callback ");
-    this->move_robot(ling);
+    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback ");
+    //this->move_robot(ling);
   
   }
+  
 
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-    RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
-    /*
-    float mid_radian = 0.43633333;
+    
+    if(!tf_published){    
+     int smallest_allowable_group = 3;
+     std::vector<group_of_laser> aggregation_of_groups_of_lasers;
+     std::shared_ptr<group_of_laser> gl(new group_of_laser(2000));
 
-    // RCLCPP_INFO(this->get_logger(), "there are %d range
-    // values",msg->ranges.size());
-    if(is_wall_ahead(msg, mid_radian, 0.9)){
-        ling.angular.z = 0;
-         RCLCPP_INFO(this->get_logger(), "WALL detected");
-    }else{
-        ling.angular.z = 0.5;
-    }
-
-    std::vector<band> aggregation_of_bands;
-    std::vector<std::tuple<float, int>> front_ranges;
-    for (int i = 495; i < 660; i++) {
-      // if (msg->ranges[i] < 200 && msg->ranges[i] > wide_band_min) {
-      front_ranges.push_back(std::tuple<float, int>(msg->ranges[i], i));
-      // }
-    }
-    for (int i = 0; i < 165; i++) {
-      // if (msg->ranges[i] < 200 && msg->ranges[i] > wide_band_min) {
-      front_ranges.push_back(std::tuple<float, int>(msg->ranges[i], i));
-      //}
-    }
-
-    auto ita = front_ranges.begin();
-    std::shared_ptr<band> b_band(new band(tolerated_min, interested_max));
-
-    while (ita < front_ranges.end()) {
-
-      while (ita < front_ranges.end() &&
-             b_band->_state == band::insertable_state::insertable) {
-        float inserting_radian = radian_from_scan_index(std::get<1>(*ita));
-        RCLCPP_DEBUG(this->get_logger(), "inserting radian %f:value %f",
-                     inserting_radian, std::get<0>(*ita));
-        int insert_result = b_band->insert(inserting_radian, std::get<0>(*ita));
-        if (insert_result == 0) {
-          RCLCPP_DEBUG(this->get_logger(), "inserted");
-        } else {
-          RCLCPP_DEBUG(this->get_logger(), "NOT inserted %d", insert_result);
+     long unsigned int i =0;
+     while(i< msg->ranges.size()){
+     //RCLCPP_INFO(this->get_logger(), " gl state %d", gl->_state); 
+     while(gl->_state == group_of_laser::insertable_state::insertable){
+        i++;
+         //RCLCPP_INFO(this->get_logger(), "working on %ld, gl state %d", i,gl->_state);       
+           int result_insert = gl->insert(scan_index_to_radian(i),
+            msg->ranges[i], msg->intensities[i]);
+            switch(result_insert){
+            case 0:
+             RCLCPP_INFO(this->get_logger(), "inserted %ld, intensity %f", i,msg->intensities[i]);
+             break;
+            case 1:
+             ;//RCLCPP_INFO(this->get_logger(), "full at %ld", i);
+             break;
+            case 2:
+             ;//RCLCPP_INFO(this->get_logger(), "intensity to small %ld, %f", i,msg->intensities[i]);
+             break;
+            }
         }
-        ita++;
-      }
-
-      std::tuple<float, float> boundary_aband = b_band->get_boundary();
-      RCLCPP_DEBUG(this->get_logger(),
-                   "inserted a band (%f,%f) size%d with max:value %f",
-                   std::get<0>(boundary_aband), std::get<1>(boundary_aband),
-                   b_band->get_size(), b_band->get_statistic_max());
-
-      if (b_band->get_size() >= smallest_allowable_band) {
-        aggregation_of_bands.push_back(*b_band);
-      }
-
-      if (b_band->_state == band::insertable_state::full) {
-        b_band = std::make_shared<band>(tolerated_min, interested_max);
-      }
-    }*/
+        if(gl->size >= smallest_allowable_group){
+                    aggregation_of_groups_of_lasers.push_back(*gl);
+        }
+        if(gl->_state == group_of_laser::insertable_state::full){
+                RCLCPP_INFO(this->get_logger(), "groups of laser full at %ld", i);
+               gl = std::make_shared<group_of_laser>(2000);
+               RCLCPP_INFO(this->get_logger(), "new gl created state %d", gl->_state);  
+        }
+     }
+     
+     
+     RCLCPP_INFO(this->get_logger(), "There are %ld groups of laser", aggregation_of_groups_of_lasers.size());
+     tf_published = true;
+    }
+   
   }
 
   bool is_wall_ahead(const sensor_msgs::msg::LaserScan::SharedPtr &msg, float mid_radian, float obstacle_thresh){
@@ -259,7 +203,7 @@ private:
   rclcpp::TimerBase::SharedPtr timer1_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher1_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription1_;
-  int direction_ = 360; //[0-719]
+  bool tf_published;
 };
 
 int main(int argc, char *argv[]) {
