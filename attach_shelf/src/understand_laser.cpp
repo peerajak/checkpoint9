@@ -264,7 +264,7 @@ double yaw_degree_radian_between_perpendicular_and_laser_x(double p1p2_perpendic
     std::string fromFrame = "robot_odom";
     std::string toFrame = "robot_front_laser_link";
     try {
-    tf_laser_to_odom = tf_buffer_->lookupTransform(toFrame, fromFrame, now);
+    tf_laser_to_odom = tf_buffer_->lookupTransform(toFrame, fromFrame, tf2::TimePointZero);
     } catch (const tf2::TransformException & ex) {
           RCLCPP_INFO(
             this->get_logger(), "Could not transform %s to %s: %s",
@@ -291,16 +291,16 @@ double yaw_degree_radian_between_perpendicular_and_laser_x(double p1p2_perpendic
   
       //------------ broadcast TF cart to robot_odom
         
-      std::string fromFrameRel = "robot_front_laser_link";
+      std::string fromFrameRel = "robot_odom";
       std::string toFrameRel = "cart_frame";
       geometry_msgs::msg::TransformStamped trans;
-      
-    trans.header.stamp = now;
+    rclcpp::Time now2 = this->get_clock()->now();  
+    trans.header.stamp = now2;
     trans.header.frame_id = fromFrameRel;
     trans.child_frame_id = toFrameRel;
-    trans.transform.translation.x = Pmidx_laser_coordinate;
-    trans.transform.translation.y = Pmidy_laser_coordinate;
-    trans.transform.translation.z = 0.0;
+    trans.transform.translation.x = point_in_odom_coordinates.getX();
+    trans.transform.translation.y = point_in_odom_coordinates.getY();
+    trans.transform.translation.z = point_in_odom_coordinates.getZ();
     trans.transform.rotation.x = q_cart_robotodom.getX();
     trans.transform.rotation.y = q_cart_robotodom.getY();
     trans.transform.rotation.z = q_cart_robotodom.getZ();
