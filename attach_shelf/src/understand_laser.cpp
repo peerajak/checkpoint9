@@ -278,9 +278,9 @@ private:
 
       double cart_roll_laser = 0;
       double cart_pitch_laser = 0;
-      double cart_yaw_laser =
-          yaw_degree_radian_between_perpendicular_and_laser_x(
-              p1p2_perpendicular_x_laser, p1p2_perpendicular_y_laser);
+      double cart_yaw_laser = 0;
+          //yaw_degree_radian_between_perpendicular_and_laser_x(
+            //  p1p2_perpendicular_x_laser, p1p2_perpendicular_y_laser);
       RCLCPP_INFO(this->get_logger(), "cart_yaw_laser = %f", cart_yaw_laser);
       tf2::Quaternion q_cart_laser;
       q_cart_laser.setRPY(cart_roll_laser, cart_pitch_laser, cart_yaw_laser);
@@ -310,8 +310,8 @@ private:
                      tf_laser_to_odom.transform.translation.z);
       tf2::Transform transform(q, p);
       // swithc x with y because our math model's x is gazebo's y and vice versa
-      tf2::Vector3 point_in_laser_coordinates(0,//P1x_laser_coordinate,
-                                              0,//P1y_laser_coordinate,
+      tf2::Vector3 point_in_laser_coordinates(Pmidy_laser_coordinate,
+                                              Pmidx_laser_coordinate,
                                               0);
       tf2::Vector3 point_in_odom_coordinates =
           transform * point_in_laser_coordinates;
@@ -320,7 +320,7 @@ private:
       //------------ broadcast TF cart to robot_odom
 
       std::string fromFrameRel = "cart_frame";
-      std::string toFrameRel = "robot_front_laser_link";//"robot_odom";
+      std::string toFrameRel = "robot_odom";
       geometry_msgs::msg::TransformStamped trans;
       rclcpp::Time now2 = this->get_clock()->now();
       trans.header.stamp = now2;
