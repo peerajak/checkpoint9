@@ -3,6 +3,7 @@ ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args --remap cmd_vel:
 
 ------- see TF---------------
 ros2 run tf2_tools view_frames
+ros2 topic echo --qos-durability transient_local --qos-reliability reliable /tf_static
 ----------------------------
 source ~/simulation_ws/devel/setup.bash
 roslaunch rb1_base_gazebo warehouse_rb1.launch
@@ -14,6 +15,12 @@ ros2 run ros1_bridge parameter_bridge
 
 ros2 run attach_shelf approach_service_server_node
 ros2 launch attach_shelf pre_approach_v2.launch.xml obstacle:=0.3 degrees:=-90.0
+
+---or--
+
+ros2 launch attach_shelf pre_approach.launch.xml obstacle:=0.3 degrees:=-90.0
+--after the robot walks, and turns...
+ros2 run attach_shelf understand_laser_node
 
 ----------------------------------
 source ~/simulation_ws/devel/setup.bash

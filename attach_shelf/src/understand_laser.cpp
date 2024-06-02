@@ -12,6 +12,13 @@
 #include <tuple>
 #include <unistd.h>
 #include <vector>
+#include <nav_msgs/msg/odometry.hpp>
+#include "tf2/LinearMath/Matrix3x3.h"
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2/LinearMath/Vector3.h"
+#include "tf2/exceptions.h"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_listener.h"
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
@@ -20,19 +27,19 @@ using std::placeholders::_1;
 
 #define pi 3.141592654
 
-const float angle_min = -2.3561999797821045;
-const float angle_max = 2.3561999797821045;
-const float angle_increment = 0.004363333340734243;
+const double angle_min = -2.3561999797821045;
+const double angle_max = 2.3561999797821045;
+const double angle_increment = 0.004363333340734243;
 const int total_scan_index = 1081;
 const int half_scan_index = 540;
 
 
-float scan_index_to_radian(int scan_index){
-  return float(scan_index-half_scan_index)*angle_increment;
+double scan_index_to_radian(int scan_index){
+  return double(scan_index-half_scan_index)*angle_increment;
 }
 
-float scan_index_to_degree(int scan_index){
-  return float(scan_index-half_scan_index)*angle_increment/pi*180;
+double scan_index_to_degree(int scan_index){
+  return double(scan_index-half_scan_index)*angle_increment/pi*180;
 }
 
 
@@ -41,8 +48,8 @@ class group_of_laser{
   public:
   enum insertable_state { insertable, full } _state;
   int size;
-  group_of_laser(float least_intensity):_least_intensity(least_intensity),_state( group_of_laser::insertable_state::insertable){size=0; }
-  int insert(float a_radian, float a_range, float an_intensity){
+  group_of_laser(double least_intensity):_least_intensity(least_intensity),_state( group_of_laser::insertable_state::insertable){size=0; }
+  int insert(double a_radian, double a_range, double an_intensity){
     if(an_intensity > _least_intensity && _state ==  group_of_laser::insertable_state::insertable){//insert only if this is true
       if(size == 0){
         ranges_vector.push_back(a_range);
@@ -54,7 +61,7 @@ class group_of_laser{
       }else{
         auto find_it = std::find_if(
           radians_vector.begin(), radians_vector.end(),
-          [&a_radian](float r) { return std::abs(r - a_radian) < 0.17; });
+          [&a_radian](double r) { return std::abs(r - a_radian) < 0.17; });
          if(find_it < radians_vector.end()){
             ranges_vector.push_back(a_range);
             radians_vector.push_back(a_radian);
@@ -75,26 +82,26 @@ class group_of_laser{
   
   
 
-  std::tuple<float, float> get_min_radian_of_the_group_and_corresponding_distance(){
+  std::tuple<double, double> get_min_radian_of_the_group_and_corresponding_distance(){
       auto it_min = std::min_element(radians_vector.begin(), radians_vector.end());
-      float corresponding_distance =
+      double corresponding_distance =
         ranges_vector[std::distance(radians_vector.begin(), it_min)];
-      float min_radian = *it_min;
-      return std::tuple<float, float>(min_radian, corresponding_distance);
+      double min_radian = *it_min;
+      return std::tuple<double, double>(min_radian, corresponding_distance);
   }
-  std::tuple<float, float> get_max_radian_of_the_group_and_corresponding_distance(){
+  std::tuple<double, double> get_max_radian_of_the_group_and_corresponding_distance(){
       auto it_max = std::max_element(radians_vector.begin(), radians_vector.end());
-      float corresponding_distance =
+      double corresponding_distance =
         ranges_vector[std::distance(radians_vector.begin(), it_max)];
-      float max_radian = *it_max;
-      return std::tuple<float, float>(max_radian, corresponding_distance);
+      double max_radian = *it_max;
+      return std::tuple<double, double>(max_radian, corresponding_distance);
   }
   private:
   
-  float _least_intensity;
-  std::vector<float> ranges_vector;
-  std::vector<float> radians_vector;
-  std::vector<float> intensity_vector;
+  double _least_intensity;
+  std::vector<double> ranges_vector;
+  std::vector<double> radians_vector;
+  std::vector<double> intensity_vector;
 
   };
 
@@ -102,22 +109,29 @@ class UnderstandLaser : public rclcpp::Node {
 public:
   UnderstandLaser() : Node("understand_laser_node") {
 
-    callback_group_1 = this->create_callback_group(
-        rclcpp::CallbackGroupType::MutuallyExclusive);
-    callback_group_2 = this->create_callback_group(
-        rclcpp::CallbackGroupType::MutuallyExclusive);
 
-    rclcpp::SubscriptionOptions options1;
-    options1.callback_group = callback_group_2;
-    subscription1_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "scan", 10,
-        std::bind(&UnderstandLaser::laser_callback, this,
+
+    //------- 2. Odom related  -----------//
+    rclcpp::SubscriptionOptions options2_odom;
+    options2_odom.callback_group = callback_group_2_odom;
+    subscription_2_odom = this->create_subscription<nav_msgs::msg::Odometry>(
+        "/odom", 10,
+        std::bind(&UnderstandLaser::odom_callback, this,
                   std::placeholders::_1),
-        options1);
+        options2_odom);
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-    timer1_ = this->create_wall_timer(
-        100ms, std::bind(&UnderstandLaser::timer1_callback, this),
-        callback_group_1);
+
+    //------- 3. Laser related  -----------//
+    rclcpp::SubscriptionOptions options3_laser;
+    options3_laser.callback_group = callback_group_3_laser;
+    subscription_3_laser = this->create_subscription<sensor_msgs::msg::LaserScan>(
+        "scan", 10,
+        std::bind(&UnderstandLaser::laser_callback, this, std::placeholders::_1),
+        options3_laser);
+
+
 
     publisher1_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/robot/cmd_vel", 10);
@@ -126,13 +140,27 @@ public:
   }
 
 private:
-  void timer1_callback() {
-    RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback ");
-    //this->move_robot(ling);
-  
+
+    //------- 2. Odom related  Functions -----------//
+  void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+    current_pos_ = msg->pose.pose.position;
+    current_angle_ = msg->pose.pose.orientation;
+    current_yaw_rad_ = yaw_theta_from_quaternion(
+        msg->pose.pose.orientation.x, msg->pose.pose.orientation.y,
+        msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
+
+    RCLCPP_DEBUG(this->get_logger(), "current pos=['%f','%f','%f'",
+                 current_pos_.x, current_pos_.y, current_yaw_rad_);
+  }
+  double yaw_theta_from_quaternion(double qx, double qy, double qz, double qw) {
+    double roll_rad, pitch_rad, yaw_rad;
+    tf2::Quaternion odom_quat(qx, qy, qz, qw);
+    tf2::Matrix3x3 matrix_tf(odom_quat);
+    matrix_tf.getRPY(roll_rad, pitch_rad, yaw_rad);
+    return yaw_rad; // In radian
   }
   
-
+   //------- 3. Laser related Functions -----------//
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     
     if(!tf_published){    
@@ -143,7 +171,7 @@ private:
      long unsigned int i =0;
      while(i< msg->ranges.size()){
      //RCLCPP_INFO(this->get_logger(), " gl state %d", gl->_state); 
-     while(gl->_state == group_of_laser::insertable_state::insertable){
+     while(i< msg->ranges.size() && gl->_state == group_of_laser::insertable_state::insertable){
         i++;
          //RCLCPP_INFO(this->get_logger(), "working on %ld, gl state %d", i,gl->_state);       
            int result_insert = gl->insert(scan_index_to_radian(i),
@@ -172,16 +200,93 @@ private:
      
      
      RCLCPP_INFO(this->get_logger(), "There are %ld groups of laser", aggregation_of_groups_of_lasers.size());
+      std::tuple<double,double> P1_laser_polar_coordinate = 
+      aggregation_of_groups_of_lasers.front().get_max_radian_of_the_group_and_corresponding_distance();
+      std::tuple<double,double> P2_laser_polar_coordinate = 
+      aggregation_of_groups_of_lasers.back().get_max_radian_of_the_group_and_corresponding_distance();
+      double P1_r_laser_polar_coordinate_aka_b = std::get<1>(P1_laser_polar_coordinate);
+      double &b = P1_r_laser_polar_coordinate_aka_b;
+      double P1_theta_laser_polar_coordinate_aka_theta1 = std::get<0>(P1_laser_polar_coordinate);
+      double &theta1 = P1_theta_laser_polar_coordinate_aka_theta1;
+      double P2_r_laser_polar_coordinate_aka_c = std::get<1>(P2_laser_polar_coordinate);
+      double &c = P2_r_laser_polar_coordinate_aka_c;
+      double P2_theta_laser_polar_coordinate_aka_theta2 = std::get<0>(P2_laser_polar_coordinate);
+      double &theta2 = P2_theta_laser_polar_coordinate_aka_theta2;
+      RCLCPP_INFO(this->get_logger(), "b=%f, theta1= %f, c=%f, theta2=%f",b,theta1,c,theta2);
+      // ----------- calculate Pmid_r_laser_coordinate, Pmid_theta_laser_coordinate, Pmid_z=0 in laser coordinate 
+      // to type tf2::Vector3, aka, point_in_child_coordinates---//
+
+      //---- calculate end quotanion in such a way that  the robot is facing mid of the cart----//
+      // answer to type tf2::Quaternion
+      // - we know P1, P2 in laser coordinate, find a unit vector perpendicular to vector P1-P2.
+
+      
+      // --------- TF2 Calculation of Laser Position w.r.t World Coordinate ------------//
+
+      std::string fromFrameRel = "robot_odom";
+      std::string toFrameRel = "robot_front_laser_link";
+      geometry_msgs::msg::TransformStamped trans;
+      try {
+          rclcpp::Time now = this->get_clock()->now();
+            trans = tf_buffer_->lookupTransform(
+            toFrameRel, fromFrameRel,
+            tf2::TimePointZero);//
+        } catch (const tf2::TransformException & ex) {
+          RCLCPP_INFO(
+            this->get_logger(), "Could not transform %s to %s: %s",
+            toFrameRel.c_str(), fromFrameRel.c_str(), ex.what());
+          return;
+        }
+
+        /*
+ geometry_msgs::TransformStamped trans;
+try {
+  trans = buffer.lookupTransform("parent_frame", "child_frame", ros::Time(0));
+} catch (tf2::TransformException& ex) {
+  // TODO: handle lookup failure appropriately
+}
+
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+tf2::Quaternion q(
+    trans.transform.rotation.x,
+    trans.transform.rotation.y,
+    trans.transform.rotation.z,
+    trans.transform.rotation.w
+);
+tf2::Vector3 p(
+    trans.transform.translation.x,
+    trans.transform.translation.y,
+    trans.transform.translation.z
+);
+tf2::Transform transform(q, p);
+tf2::Vector3 point_in_child_coordinates(1, 2, 3);
+tf2::Quaternion quotanion_in_child_coordinate(?,?,?,?);
+
+tf2::Vector3 point_in_parent_coordinates = transform * point_in_child_coordinates;
+tf2::Quaternion quotanion_in_parent_coordinate = transform * quotanion_in_child_coordinate;
+
+-----------
+
+TF2SIMD_FORCE_INLINE Vector3 tf2::Transform::operator*	(	const Vector3 & 	x	)	const [inline]
+Return the transform of the vector.
+
+Definition at line 99 of file Transform.h.
+
+TF2SIMD_FORCE_INLINE Quaternion tf2::Transform::operator*	(	const Quaternion & 	q	)	const [inline]
+Return the transform of the Quaternion.
+
+Definition at line 105 of file Transform.h.
+        */
      tf_published = true;
     }
    
   }
 
-  bool is_wall_ahead(const sensor_msgs::msg::LaserScan::SharedPtr &msg, float mid_radian, float obstacle_thresh){
+  bool is_wall_ahead(const sensor_msgs::msg::LaserScan::SharedPtr &msg, double mid_radian, double obstacle_thresh){
       int number_of_mid_scan_lines = (int)(mid_radian/angle_increment); 
       int begin_mid_scan_index = half_scan_index - int(number_of_mid_scan_lines/2);
       int end_mid_scan_index=  half_scan_index + int(number_of_mid_scan_lines/2);
-      float average_range;
+      double average_range;
       int total_lines=0;
    
      
@@ -198,19 +303,29 @@ private:
 
   void move_robot(geometry_msgs::msg::Twist &msg) { publisher1_->publish(msg); }
   geometry_msgs::msg::Twist ling;
-  rclcpp::CallbackGroup::SharedPtr callback_group_1;
-  rclcpp::CallbackGroup::SharedPtr callback_group_2;
-  rclcpp::TimerBase::SharedPtr timer1_;
+
+
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher1_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription1_;
   bool tf_published;
+  //------- 2. Odom related  -----------//
+  rclcpp::CallbackGroup::SharedPtr callback_group_2_odom;
+  rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subscription_2_odom;
+  geometry_msgs::msg::Point current_pos_;
+  geometry_msgs::msg::Quaternion current_angle_;
+  double current_yaw_rad_;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+ std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+//------- 3. Laser related  -----------//
+  rclcpp::CallbackGroup::SharedPtr callback_group_3_laser;
+  rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_3_laser;
 };
 
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
   // Instantiate the Node
-  // float sleep_time1 = 1.0;
+  // double sleep_time1 = 1.0;
 
   std::shared_ptr<UnderstandLaser> laser_timer_node =
       std::make_shared<UnderstandLaser>();

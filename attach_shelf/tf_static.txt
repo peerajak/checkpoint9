@@ -1,0 +1,242 @@
+transforms:
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_front_cover_link
+  child_frame_id: robot_base_docking_contact_link
+  transform:
+    translation:
+      x: 0.03
+      y: 0.0
+      z: 0.068
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_footprint
+  child_frame_id: robot_base_link
+  transform:
+    translation:
+      x: 0.0
+      y: 0.0
+      z: 0.024799999999999996
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_link
+  child_frame_id: robot_front_cover_link
+  transform:
+    translation:
+      x: 0.22
+      y: 0.0
+      z: 0.004
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_link
+  child_frame_id: robot_front_laser_base_link
+  transform:
+    translation:
+      x: 0.21
+      y: 0.0
+      z: 0.159
+    rotation:
+      x: 0.9999999999865076
+      y: 3.673205103321794e-06
+      z: 3.673205103321794e-06
+      w: -1.3492435731251317e-11
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_front_laser_base_link
+  child_frame_id: robot_front_laser_link
+  transform:
+    translation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_front_rgbd_camera_rgb_base_link
+  child_frame_id: robot_front_rgbd_camera_depth_frame
+  transform:
+    translation:
+      x: 0.0
+      y: 0.025
+      z: 0.0
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_front_rgbd_camera_depth_frame
+  child_frame_id: robot_front_rgbd_camera_depth_optical_frame
+  transform:
+    translation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    rotation:
+      x: 0.5
+      y: -0.4999999999999999
+      z: 0.5
+      w: -0.5000000000000001
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_front_rgbd_camera_rgb_base_link
+  child_frame_id: robot_front_rgbd_camera_link
+  transform:
+    translation:
+      x: 0.0
+      y: -0.0125
+      z: -0.015
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_link
+  child_frame_id: robot_front_rgbd_camera_rgb_base_link
+  transform:
+    translation:
+      x: 0.234
+      y: 0.0125
+      z: 0.107
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_front_rgbd_camera_rgb_base_link
+  child_frame_id: robot_front_rgbd_camera_rgb_optical_frame
+  transform:
+    translation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+    rotation:
+      x: 0.5
+      y: -0.4999999999999999
+      z: 0.5
+      w: -0.5000000000000001
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_link
+  child_frame_id: robot_imu_link
+  transform:
+    translation:
+      x: 0.002
+      y: 0.053
+      z: 0.1485
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_link
+  child_frame_id: robot_omni_backwheel_link
+  transform:
+    translation:
+      x: -0.195
+      y: 0.0
+      z: 0.027
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_link
+  child_frame_id: robot_omni_front_leftwheel_link
+  transform:
+    translation:
+      x: 0.132
+      y: 0.1535
+      z: 0.027
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_link
+  child_frame_id: robot_omni_front_rightwheel_link
+  transform:
+    translation:
+      x: 0.132
+      y: -0.1535
+      z: 0.027
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+- header:
+    stamp:
+      sec: 0
+      nanosec: 21000000
+    frame_id: robot_base_footprint
+  child_frame_id: robot_top_cover_link
+  transform:
+    translation:
+      x: 0.0
+      y: 0.0
+      z: 0.243
+    rotation:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      w: 1.0
+---

@@ -48,7 +48,7 @@ rclcpp sensor_msgs geometry_msgs nav_msgs std_msgs custom_interfaces tf2 tf2_ros
 
 add_executable(understand_laser_node src/understand_laser.cpp)
 ament_target_dependencies(understand_laser_node 
-rclcpp sensor_msgs geometry_msgs)
+rclcpp sensor_msgs geometry_msgs nav_msgs tf2 tf2_ros)
 
 
 install(TARGETS
