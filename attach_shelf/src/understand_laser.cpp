@@ -19,6 +19,7 @@
 #include "tf2/exceptions.h"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/transform_listener.h"
+#include <tf2_ros/static_transform_broadcaster.h>
 
 using namespace std::chrono_literals;
 using std::placeholders::_1;
@@ -119,10 +120,9 @@ public:
         std::bind(&UnderstandLaser::odom_callback, this,
                   std::placeholders::_1),
         options2_odom);
+    tf_static_publisher_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
     tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
-
-
     //------- 3. Laser related  -----------//
     rclcpp::SubscriptionOptions options3_laser;
     options3_laser.callback_group = callback_group_3_laser;
@@ -159,6 +159,23 @@ private:
     matrix_tf.getRPY(roll_rad, pitch_rad, yaw_rad);
     return yaw_rad; // In radian
   }
+  std::tuple<double, double> get_p1_to_p2_perpendicular_vector_laser_coordinate
+  (double p1x_laser, double p1y_laser, double p2x_laser, double p2y_laser){
+    double p1_to_p2_laser_x = p2x_laser - p1x_laser;
+    double p1_to_p2_laser_y = p2y_laser - p1y_laser;
+    double perpen_l1_to_l2_laser_x = 1;
+    double perpen_l1_to_l2_laser_y = -p1_to_p2_laser_x/p1_to_p2_laser_y;
+     return std::tuple<double,double>{perpen_l1_to_l2_laser_x,perpen_l1_to_l2_laser_y};
+}
+double yaw_degree_radian_between_perpendicular_and_laser_x(double p1p2_perpendicular_x_laser, double p1p2_perpendicular_y_laser){
+   double x_laser = 1.0;
+   double y_laser = 0;
+   double x_laser_dot_p1p2_perpendicular_laser = p1p2_perpendicular_x_laser* x_laser + p1p2_perpendicular_y_laser*y_laser;
+   double size_of_p1p2_perpendicular_laser = std::sqrt( p1p2_perpendicular_x_laser*p1p2_perpendicular_x_laser+ p1p2_perpendicular_y_laser*p1p2_perpendicular_y_laser);
+   double size_of_x_laser = 1;
+   return std::acos(x_laser_dot_p1p2_perpendicular_laser/(size_of_p1p2_perpendicular_laser*size_of_x_laser));
+}
+
   
    //------- 3. Laser related Functions -----------//
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
@@ -215,68 +232,82 @@ private:
       RCLCPP_INFO(this->get_logger(), "b=%f, theta1= %f, c=%f, theta2=%f",b,theta1,c,theta2);
       // ----------- calculate Pmid_r_laser_coordinate, Pmid_theta_laser_coordinate, Pmid_z=0 in laser coordinate 
       // to type tf2::Vector3, aka, point_in_child_coordinates---//
-
+    double P1x_laser_coordinate = b*std::cos(theta1);
+    double P1y_laser_coordinate = b*std::sin(theta1);
+    double P2x_laser_coordinate = c*std::cos(theta2);
+    double P2y_laser_coordinate = c*std::sin(theta2);
+    double Pmidx_laser_coordinate = (P1x_laser_coordinate + P2x_laser_coordinate)/2;
+    double Pmidy_laser_coordinate = (P1y_laser_coordinate + P2y_laser_coordinate)/2;
+    double Pmidz_laser_coordinate = 0;
+    RCLCPP_INFO(this->get_logger(), "Pmidx_laser_coordinate=%f, Pmidy_laser_coordinate= %f",Pmidx_laser_coordinate,Pmidy_laser_coordinate);
       //---- calculate end quotanion in such a way that  the robot is facing mid of the cart----//
       // answer to type tf2::Quaternion
       // - we know P1, P2 in laser coordinate, find a unit vector perpendicular to vector P1-P2.
+    std::tuple<double, double> result_p1p2_perpendicular_laser = get_p1_to_p2_perpendicular_vector_laser_coordinate
+       (P1x_laser_coordinate,P1y_laser_coordinate,P2x_laser_coordinate,P2y_laser_coordinate);
+    double p1p2_perpendicular_x_laser = std::get<0>(result_p1p2_perpendicular_laser);
+    double p1p2_perpendicular_y_laser = std::get<1>(result_p1p2_perpendicular_laser); 
+
+    double cart_roll_laser = 0;
+    double cart_pitch_laser = 0;
+    double cart_yaw_laser =  yaw_degree_radian_between_perpendicular_and_laser_x
+                                 (p1p2_perpendicular_x_laser,p1p2_perpendicular_y_laser);
+    RCLCPP_INFO(this->get_logger(), "cart_yaw_laser = %f",cart_yaw_laser);
+    tf2::Quaternion q_cart_laser;
+    q_cart_laser.setRPY(cart_roll_laser,cart_pitch_laser, cart_yaw_laser);
 
       
-      // --------- TF2 Calculation of Laser Position w.r.t World Coordinate ------------//
+      // --------- TF2 Calculation of Laser Position w.r.t robot_odom Coordinate ------------//
 
-      std::string fromFrameRel = "robot_odom";
-      std::string toFrameRel = "robot_front_laser_link";
-      geometry_msgs::msg::TransformStamped trans;
-      try {
-          rclcpp::Time now = this->get_clock()->now();
-            trans = tf_buffer_->lookupTransform(
-            toFrameRel, fromFrameRel,
-            tf2::TimePointZero);//
-        } catch (const tf2::TransformException & ex) {
+    geometry_msgs::msg::TransformStamped tf_laser_to_odom;
+    rclcpp::Time now = this->get_clock()->now();
+    std::string fromFrame = "robot_odom";
+    std::string toFrame = "robot_front_laser_link";
+    try {
+    tf_laser_to_odom = tf_buffer_->lookupTransform(toFrame, fromFrame, now);
+    } catch (const tf2::TransformException & ex) {
           RCLCPP_INFO(
             this->get_logger(), "Could not transform %s to %s: %s",
-            toFrameRel.c_str(), fromFrameRel.c_str(), ex.what());
+            toFrame.c_str(), fromFrame.c_str(), ex.what());
           return;
-        }
+    }
 
-        /*
- geometry_msgs::TransformStamped trans;
-try {
-  trans = buffer.lookupTransform("parent_frame", "child_frame", ros::Time(0));
-} catch (tf2::TransformException& ex) {
-  // TODO: handle lookup failure appropriately
-}
 
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-tf2::Quaternion q(
-    trans.transform.rotation.x,
-    trans.transform.rotation.y,
-    trans.transform.rotation.z,
-    trans.transform.rotation.w
-);
-tf2::Vector3 p(
-    trans.transform.translation.x,
-    trans.transform.translation.y,
-    trans.transform.translation.z
-);
-tf2::Transform transform(q, p);
-tf2::Vector3 point_in_child_coordinates(1, 2, 3);
-tf2::Quaternion quotanion_in_child_coordinate(?,?,?,?);
+    tf2::Quaternion q(
+        tf_laser_to_odom.transform.rotation.x,
+        tf_laser_to_odom.transform.rotation.y,
+        tf_laser_to_odom.transform.rotation.z,
+        tf_laser_to_odom.transform.rotation.w
+    );
+    tf2::Vector3 p(
+        tf_laser_to_odom.transform.translation.x,
+        tf_laser_to_odom.transform.translation.y,
+        tf_laser_to_odom.transform.translation.z
+    );
+    tf2::Transform transform(q, p);
+    tf2::Vector3 point_in_laser_coordinates(Pmidx_laser_coordinate, Pmidy_laser_coordinate,Pmidz_laser_coordinate);
+    tf2::Vector3 point_in_odom_coordinates = transform * point_in_laser_coordinates;
+    tf2::Quaternion q_cart_robotodom =   transform *q_cart_laser;
+  
+      //------------ broadcast TF cart to robot_odom
+        
+      std::string fromFrameRel = "robot_front_laser_link";
+      std::string toFrameRel = "cart_frame";
+      geometry_msgs::msg::TransformStamped trans;
+      
+    trans.header.stamp = now;
+    trans.header.frame_id = fromFrameRel;
+    trans.child_frame_id = toFrameRel;
+    trans.transform.translation.x = Pmidx_laser_coordinate;
+    trans.transform.translation.y = Pmidy_laser_coordinate;
+    trans.transform.translation.z = 0.0;
+    trans.transform.rotation.x = q_cart_robotodom.getX();
+    trans.transform.rotation.y = q_cart_robotodom.getY();
+    trans.transform.rotation.z = q_cart_robotodom.getZ();
+    trans.transform.rotation.w = q_cart_robotodom.getW();
 
-tf2::Vector3 point_in_parent_coordinates = transform * point_in_child_coordinates;
-tf2::Quaternion quotanion_in_parent_coordinate = transform * quotanion_in_child_coordinate;
+    tf_static_publisher_->sendTransform(trans);
 
------------
-
-TF2SIMD_FORCE_INLINE Vector3 tf2::Transform::operator*	(	const Vector3 & 	x	)	const [inline]
-Return the transform of the vector.
-
-Definition at line 99 of file Transform.h.
-
-TF2SIMD_FORCE_INLINE Quaternion tf2::Transform::operator*	(	const Quaternion & 	q	)	const [inline]
-Return the transform of the Quaternion.
-
-Definition at line 105 of file Transform.h.
-        */
      tf_published = true;
     }
    
@@ -315,7 +346,9 @@ Definition at line 105 of file Transform.h.
   geometry_msgs::msg::Quaternion current_angle_;
   double current_yaw_rad_;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
- std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+
+ std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_publisher_;
 //------- 3. Laser related  -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_3_laser;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_3_laser;

@@ -25,3 +25,5 @@ ros2 run attach_shelf understand_laser_node
 ----------------------------------
 source ~/simulation_ws/devel/setup.bash
 roslaunch rb1_base_gazebo warehouse_rb1_laser_detect_legs.launch
+
+ros2 run attach_shelf understand_laser_node
