@@ -1,28 +1,7 @@
 # checkpoint9
 
-## Task1 plan
-ros2 pkg create --build-type ament_cmake attach_shelf --dependencies tf2_ros geometry_msgs nav_msgs rclcpp custom_interfaces std_msgs sensor_msgs
-- Move robot according to parameter given by CLI
+current Status.
+- try to link cart_frame to robot_odom frame. but here is the error I get.
 
-
-
-## Task2 plan
-- Create a service
-- Play with laser intensity to detect the two legs of the cart
-- try to publish a dynamic TF from a fixed point to the world frame. Show that moving robot does not move the TF
-? Do I need to do? - try to publish another dynamic TF from an object to a world frame. Show that moving the object does move the TF.
-
-
-user:~$ ros2 topic list
-/clock
-/cmd_vel
-/elevator_down
-/elevator_up
-/odom
-/parameter_events
-/robot/cmd_vel
-/rosout
-/scan
-/tf
-/tf_static
-user:~$
+Could not transform robot_front_laser_link to robot_odom: Lookup would require extrapolation into the future. Requested time 1717306165.760856 but the latest data is at time 2670.479000, when looking up transform from frame [robot_odom] to frame [robot_front_laser_link]
+^C[INFO] [1717306165.763756332] [rclcpp]: signal_handler(signal_value=2)
