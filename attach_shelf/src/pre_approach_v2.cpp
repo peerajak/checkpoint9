@@ -46,13 +46,16 @@ float radian_to_degree(float rad) { return rad / pi * 180; }
 
 class MoveToGoal : public rclcpp::Node {
 public:
-  MoveToGoal() : Node("move_to_goal_node") {
-    this->declare_parameter("obstacle", 0.0);
-    this->declare_parameter("degrees", 0.0);
-    obstacle =
-        this->get_parameter("obstacle").get_parameter_value().get<float>();
+  MoveToGoal(int &argc, char **argv) : Node("move_to_goal_node") {
+    //this->declare_parameter("obstacle", 0.0);
+     message1 = argv[2];
+   obstacle = std::stof(message1);
+    //this->declare_parameter("degrees", 0.0);
+     message2 = argv[3];
+     degrees = std::stof(message2);
+   // obstacle =    this->get_parameter("obstacle").get_parameter_value().get<float>();
 
-    degrees = this->get_parameter("degrees").get_parameter_value().get<float>();
+    //degrees = this->get_parameter("degrees").get_parameter_value().get<float>();
     RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
                 obstacle, degrees);
     callback_group_1 = this->create_callback_group(
@@ -126,7 +129,8 @@ private:
      return average_range < obstacle_thresh;// if average_range is less than threshold, then yes! wall ahead.
   }
 
-
+  std::string message1;
+  std::string message2;
   geometry_msgs::msg::Twist ling;
   rclcpp::CallbackGroup::SharedPtr callback_group_1;
   rclcpp::CallbackGroup::SharedPtr callback_group_2;
@@ -142,13 +146,12 @@ private:
 
 class Rotation : public rclcpp::Node {
 public:
-  Rotation() : Node("rotation_node") {
-    this->declare_parameter("obstacle", 0.0);
-    this->declare_parameter("degrees", 0.0);
-    obstacle =
-        this->get_parameter("obstacle").get_parameter_value().get<float>();
-
-    degrees = this->get_parameter("degrees").get_parameter_value().get<float>();
+  Rotation(int &argc, char **argv) : Node("rotation_node") {
+     message1 = argv[2];
+     obstacle = std::stof(message1);
+    //this->declare_parameter("degrees", 0.0);
+     message2 = argv[3];
+     degrees = std::stof(message2);
     RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
                 obstacle, degrees);
     callback_group_1 = this->create_callback_group(
@@ -235,7 +238,8 @@ private:
     return std::abs(first - second) <= pi ? first - second
                                             : (first - second) - 2 * pi;
     }
-
+  std::string message1;
+  std::string message2;
   geometry_msgs::msg::Twist ling;
   rclcpp::CallbackGroup::SharedPtr callback_group_1;
   rclcpp::CallbackGroup::SharedPtr callback_group_2;
@@ -255,6 +259,10 @@ private:
 
 class ServiceClient : public rclcpp::Node {
 private:
+  std::string message1;
+  std::string message2;
+  float obstacle;
+  float degrees;
   rclcpp::Client<GoToLoading>::SharedPtr client_;
   rclcpp::TimerBase::SharedPtr timer_;
     void timer_callback() {
@@ -289,7 +297,14 @@ private:
   }
 
 public:
-  ServiceClient() : Node("service_client") {
+  ServiceClient(int &argc, char **argv) : Node("service_client") {
+       message1 = argv[2];
+    obstacle = std::stof(message1);
+    //this->declare_parameter("degrees", 0.0);
+     message2 = argv[3];
+     degrees = std::stof(message2);
+        RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
+                obstacle, degrees);
     client_ = this->create_client<GoToLoading>("approach_shelf");
     timer_ = this->create_wall_timer(
         1s, std::bind(&ServiceClient::timer_callback, this));
@@ -303,12 +318,12 @@ int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
 
   std::shared_ptr<MoveToGoal> move_to_goal_node =
-      std::make_shared<MoveToGoal>();
+      std::make_shared<MoveToGoal>(argc, argv);
   std::shared_ptr<Rotation> rotation_node =
-      std::make_shared<Rotation>();
+      std::make_shared<Rotation>(argc, argv);
 
   std::shared_ptr<ServiceClient> service_client_node = 
-  std::make_shared<ServiceClient>();
+  std::make_shared<ServiceClient>(argc, argv);
   // Initialize one MultiThreadedExecutor object
   rclcpp::executors::MultiThreadedExecutor executor;
   nstate = move_to_goal;
