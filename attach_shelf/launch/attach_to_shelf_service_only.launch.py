@@ -17,17 +17,16 @@ def generate_launch_description():
         launch.actions.LogInfo(
             msg=launch.substitutions.LaunchConfiguration('final_approach')),
         # All the arguments have to be strings. Floats will give an error of NonItreable.
-        Node(
-            package='attach_shelf',
-            executable='pre_approach_v2_node',
-            output='screen',
-            emulate_tty=True,
-            arguments=["-obstacle", launch.substitutions.LaunchConfiguration(
-                'obstacle'),
-                launch.substitutions.LaunchConfiguration('degrees'),
-                launch.substitutions.LaunchConfiguration('final_approach')
-            ]
-        ),
+        #Node(
+        #    package='attach_shelf',
+        #    executable='pre_approach_v2_node',
+        #    output='screen',
+        #    emulate_tty=True,
+        #    arguments=["-obstacle", launch.substitutions.LaunchConfiguration(
+        #        'obstacle'),
+        #        launch.substitutions.LaunchConfiguration('degrees')
+        #    ]
+        #),
         Node(
         package='attach_shelf',
         executable='approach_service_server_node',
@@ -36,5 +35,5 @@ def generate_launch_description():
         arguments=["-obstacle", launch.substitutions.LaunchConfiguration(
                 'obstacle')
             ]
-        )]
-    )
+        )
+    ])

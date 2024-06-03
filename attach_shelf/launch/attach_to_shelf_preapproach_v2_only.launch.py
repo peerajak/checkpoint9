@@ -27,14 +27,15 @@ def generate_launch_description():
                 launch.substitutions.LaunchConfiguration('degrees'),
                 launch.substitutions.LaunchConfiguration('final_approach')
             ]
-        ),
-        Node(
-        package='attach_shelf',
-        executable='approach_service_server_node',
-        output='screen',
-        emulate_tty=True,
-        arguments=["-obstacle", launch.substitutions.LaunchConfiguration(
-                'obstacle')
-            ]
-        )]
-    )
+        )#,
+        #Node(
+        #package='attach_shelf',
+        #executable='approach_service_server_node',
+        #output='screen',
+        #emulate_tty=True,
+        #arguments=["-final_approach", launch.substitutions.LaunchConfiguration(
+        #        'final_approach'),
+        #        launch.substitutions.LaunchConfiguration('final_approach')
+        #    ]
+        #)
+    ])

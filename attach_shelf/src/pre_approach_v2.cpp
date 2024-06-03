@@ -47,17 +47,21 @@ float radian_to_degree(float rad) { return rad / pi * 180; }
 class MoveToGoal : public rclcpp::Node {
 public:
   MoveToGoal(int &argc, char **argv) : Node("move_to_goal_node") {
-    //this->declare_parameter("obstacle", 0.0);
+
      message1 = argv[2];
    obstacle = std::stof(message1);
-    //this->declare_parameter("degrees", 0.0);
      message2 = argv[3];
      degrees = std::stof(message2);
-   // obstacle =    this->get_parameter("obstacle").get_parameter_value().get<float>();
 
-    //degrees = this->get_parameter("degrees").get_parameter_value().get<float>();
-    RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
+    RCLCPP_INFO(this->get_logger(), "Got params obstacle: %f, degrees %f",
                 obstacle, degrees);
+
+    message3 = argv[4];
+    final_approach = message3 == "true";
+    std::string msg_info = final_approach== true? message3+" Got params final_approach: true":message3+"Got params final_approach: false";
+    RCLCPP_INFO(this->get_logger(),msg_info.c_str());  
+
+
     callback_group_1 = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
     callback_group_2 = this->create_callback_group(
@@ -131,6 +135,7 @@ private:
 
   std::string message1;
   std::string message2;
+  std::string message3;
   geometry_msgs::msg::Twist ling;
   rclcpp::CallbackGroup::SharedPtr callback_group_1;
   rclcpp::CallbackGroup::SharedPtr callback_group_2;
@@ -141,6 +146,8 @@ private:
   float obstacle;
   float degrees;
   bool position_reached;
+  bool final_approach;
+
 
 };
 
@@ -152,7 +159,7 @@ public:
     //this->declare_parameter("degrees", 0.0);
      message2 = argv[3];
      degrees = std::stof(message2);
-    RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
+    RCLCPP_INFO(this->get_logger(), "Got params obstacle: %f, degrees %f",
                 obstacle, degrees);
     callback_group_1 = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -259,8 +266,9 @@ private:
 
 class ServiceClient : public rclcpp::Node {
 private:
-  std::string message1;
-  std::string message2;
+
+  bool final_approach;
+  std::string message3;
   float obstacle;
   float degrees;
   rclcpp::Client<GoToLoading>::SharedPtr client_;
@@ -278,7 +286,7 @@ private:
         }
 
     auto request = std::make_shared<GoToLoading::Request>();
-    request->attach_to_shelf = true;
+    request->attach_to_shelf = final_approach;
 
 
     auto result_future = client_->async_send_request(
@@ -289,7 +297,13 @@ private:
   response_callback(rclcpp::Client<GoToLoading>::SharedFuture future) {
     auto status = future.wait_for(1s);
     if (status == std::future_status::ready) {
-      RCLCPP_INFO(this->get_logger(), "Result: success");
+      auto service_response = future.get();
+      if( service_response->complete){
+            RCLCPP_INFO(this->get_logger(), "Result: success");
+      }else{
+          RCLCPP_INFO(this->get_logger(), "Result: failure");
+      }
+
       nstate = end_program;
     } else {
       RCLCPP_INFO(this->get_logger(), "Service In-Progress...");
@@ -298,13 +312,12 @@ private:
 
 public:
   ServiceClient(int &argc, char **argv) : Node("service_client") {
-       message1 = argv[2];
-    obstacle = std::stof(message1);
-    //this->declare_parameter("degrees", 0.0);
-     message2 = argv[3];
-     degrees = std::stof(message2);
-        RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
-                obstacle, degrees);
+
+     message3 = argv[4];
+    final_approach = message3 == "true";
+    std::string msg_info = final_approach== true? "Got params final_approach: true":"Got params final_approach: false";
+    RCLCPP_INFO(this->get_logger(),msg_info.c_str());  
+
     client_ = this->create_client<GoToLoading>("approach_shelf");
     timer_ = this->create_wall_timer(
         1s, std::bind(&ServiceClient::timer_callback, this));

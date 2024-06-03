@@ -68,6 +68,7 @@ const double angle_increment = 0.004363333340734243;
 const int total_scan_index = 1081;
 const int half_scan_index = 540;
 
+
 double scan_index_to_radian(int scan_index) {
   return double(scan_index - half_scan_index) * angle_increment;
 }
@@ -146,14 +147,14 @@ private:
 
 class MidLegsTFService : public rclcpp::Node {
 public:
-  MidLegsTFService(int &argc, char **argv) : Node("mid_legs_tf_service_node") {
+  MidLegsTFService(int argc, char *argv[]) : Node("mid_legs_tf_service_node") {
     //------ 0. internal members ----------------//
-    message1 = argv[3];
-    final_approach = message1 == "true";
-    std::string msg_info = final_approach== true? "Got params final_approach: true":"Got params final_approach: false";
-    RCLCPP_INFO(this->get_logger(),msg_info.c_str());
-            
-    nstate = service_deactivated;
+    message1 = argv[2];
+    obstacle = std::stof(message1);
+    RCLCPP_INFO(this->get_logger(), "Got params obstacle: %f",obstacle);
+ 
+    tf_published = false;          
+    nstate = state_zero;
     //------ callback group together -------------//
 
     callback_group_1_timer = this->create_callback_group(
@@ -170,7 +171,12 @@ public:
         100ms, std::bind(&MidLegsTFService::timer1_callback, this),
         callback_group_1_timer);
     publisher_1_twist =
-        this->create_publisher<geometry_msgs::msg::Twist>("cmd_vel", 10);
+        this->create_publisher<geometry_msgs::msg::Twist>("robot/cmd_vel", 10);
+    tf_buffer_move_robot1 = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_move_robot1 = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_move_robot1 );
+    tf_buffer_move_robot2 = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_move_robot2 = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_move_robot2 );
+
 
     //------- 2. Odom related  -----------//
     rclcpp::SubscriptionOptions options2_odom;
@@ -180,6 +186,9 @@ public:
         std::bind(&MidLegsTFService::odom_callback, this,
                   std::placeholders::_1),
         options2_odom);
+    tf_static_publisher_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
+    tf_buffer_ = std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
     //------- 3. Laser related  -----------//
     rclcpp::SubscriptionOptions options3_laser;
@@ -209,25 +218,31 @@ public:
     publisher_5_unload =
         this->create_publisher<std_msgs::msg::Empty>("elevator_down", 10);
 
-    tf_published = true;
+
   }
 
 private:
   //------- 0. internal use --------------//
-  std::string message1;
-  bool final_approach;
-  //_service_activated is
-  // if completed, or not started, delete those bands, and TFs. Because future
-  // clients may use this service on different scenarioes if service is called
-  // for the first time by a new client.
   enum serviceState {
+    state_zero,
     service_activated,
     tf_already_published,
     approach_shelf,
+    approach_shelf2,
     service_completed_success,
     service_completed_failure,
     service_deactivated
   } nstate;
+ std::string nstate_string[8]
+      = { "state_zero", "service_activated", "tf_already_published", "approach_shelf" ,"approach_shelf2",
+      "service_completed_success","service_completed_failure","service_deactivated"};
+ std::string message1;
+
+  //_service_activated is
+  // if completed, or not started, delete those bands, and TFs. Because future
+  // clients may use this service on different scenarioes if service is called
+  // for the first time by a new client.
+
 
   /*     attach_to_shelf (true/false):
  If True,
@@ -245,6 +260,10 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher_1_twist;
   rclcpp::TimerBase::SharedPtr timer1_;
   geometry_msgs::msg::Twist ling;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_move_robot1{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_move_robot1;
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_move_robot2{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_move_robot2;
 
   //------- 2. Odom related  -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_2_odom;
@@ -256,7 +275,7 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_publisher_;
-  double obstracle = 0.3;
+  double obstacle = 0.3;
   bool tf_published;
   //------- 3. Laser related  -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_3_laser;
@@ -276,8 +295,11 @@ private:
   //------- 1. timer_1 related Functions -----------//
   void timer1_callback() {
     RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback Start");
-    if (nstate == approach_shelf) {
-      this->move_robot(ling);
+    if (nstate == approach_shelf) {    
+
+            this->move_robot(ling);
+        RCLCPP_INFO(this->get_logger(), "linear x %f, angular z %f",ling.linear.x,ling.angular.z);
+
     }
   }
   void move_robot(geometry_msgs::msg::Twist &msg) {
@@ -328,12 +350,12 @@ private:
            std::acos(x_laser_dot_p1p2_perpendicular_laser /
                      (size_of_p1p2_perpendicular_laser * size_of_x_laser));
   }
-  std::tuple<double, double> get_obstracle_cm_into_obstracle(
+  std::tuple<double, double> get_obstacle_cm_into_obstacle(
       double p1_to_p2_perpendicular_vector_x_laser_coordinate,
       double p1_to_p2_perpendicular_vector_y_laser_coordinate,
       double pmid_x_laser_coordinate, double pmid_y_laser_coordinate) {
     // call the final position point k, or vector k
-    double &kcm = this->obstracle; // in meter unit
+    double &kcm = this->obstacle; // in meter unit
     double size_of_p1p2_perpendicular_laser =
         std::sqrt(p1_to_p2_perpendicular_vector_x_laser_coordinate *
                       p1_to_p2_perpendicular_vector_x_laser_coordinate +
@@ -353,12 +375,16 @@ private:
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     switch (nstate) {
     case service_activated:
+    {
       // 1. get current position from odom_callback
       // 2. perform laser measurement, find the band between two legs
       // 3. calculate the position( in world space) of middle of the two leg and
       // statically tf publish it.
       // 4. set nstate to tf_already_published
-      if (!tf_already_published) {
+              RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
+       RCLCPP_INFO(this->get_logger(),"laser() service_activated");
+      if (!tf_published) {
+     RCLCPP_INFO(this->get_logger(),"Publishing TF");
         int smallest_allowable_group = 3;
         std::vector<group_of_laser> aggregation_of_groups_of_lasers;
         std::shared_ptr<group_of_laser> gl(new group_of_laser(2000));
@@ -398,6 +424,10 @@ private:
 
         RCLCPP_INFO(this->get_logger(), "There are %ld groups of laser",
                     aggregation_of_groups_of_lasers.size());
+        if( aggregation_of_groups_of_lasers.size()<2){
+        nstate = service_completed_failure;
+        return;
+        }
         std::tuple<double, double> P1_laser_polar_coordinate =
             aggregation_of_groups_of_lasers.front()
                 .get_max_radian_of_the_group_and_corresponding_distance();
@@ -474,6 +504,7 @@ private:
         } catch (const tf2::TransformException &ex) {
           RCLCPP_INFO(this->get_logger(), "Could not transform %s to %s: %s",
                       toFrame.c_str(), fromFrame.c_str(), ex.what());
+          nstate = service_completed_failure;
           return;
         }
 
@@ -487,7 +518,8 @@ private:
         tf2::Transform transform(q, p);
 
         tf2::Vector3 point_in_laser_coordinates(Pmidx_laser_coordinate,
-                                                Pmidy_laser_coordinate, 0);
+                                                Pmidy_laser_coordinate, 
+                                                Pmidz_laser_coordinate);
         tf2::Vector3 point_in_odom_coordinates =
             transform * point_in_laser_coordinates;
         tf2::Quaternion q_cart_robotodom = transform * q_cart_laser;
@@ -511,10 +543,10 @@ private:
 
         tf_static_publisher_->sendTransform(trans);
 
-        //  obstracle frame static TF braodcast
-        toFrameRel = "obstracle_frame";
+        //  obstacle frame static TF braodcast
+        toFrameRel = "obstacle_frame";
         std::tuple<double, double> k_point_laser =
-            get_obstracle_cm_into_obstracle(
+            get_obstacle_cm_into_obstacle(
                 p1p2_perpendicular_x_laser, p1p2_perpendicular_y_laser,
                 Pmidx_laser_coordinate, Pmidy_laser_coordinate);
         double k_point_x_laser = std::get<0>(k_point_laser);
@@ -539,43 +571,141 @@ private:
         tf_static_publisher_->sendTransform(trans2);
 
         tf_published = true;
+        nstate = tf_already_published;
       }
-      nstate = tf_already_published;
+    }
       break;
     case tf_already_published:
+            RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
       if (attach_to_shelf) {
         nstate = approach_shelf;
       } else {
-        nstate = service_deactivated;
+        nstate = service_completed_failure;
       }
       break;
     case approach_shelf:
       // move to under shelf using tf
       // only set ling. no publish to cmd_vel
+      {
+              RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
+    std::string fromFrame_tomoveto = "cart_frame";
+    std::string toFrame_tofollow = "robot_base_link";
+    geometry_msgs::msg::TransformStamped ttt;
+        try {
+            rclcpp::Time now = this->get_clock()->now();
+            ttt = tf_buffer_move_robot1->lookupTransform(
+                toFrame_tofollow, fromFrame_tomoveto,
+                tf2::TimePointZero);//
+            } catch (const tf2::TransformException & ex) {
+            RCLCPP_INFO(
+                this->get_logger(), "Could not transform %s to %s: %s",
+                toFrame_tofollow.c_str(), fromFrame_tomoveto.c_str(), ex.what());
+                nstate = service_completed_failure;
+            return;
+            }
+
+            static const double scaleRotationRate = 0.6;
+            ling.angular.x = 0;
+            ling.angular.y = 0;
+            ling.angular.z = scaleRotationRate * atan2(
+            ttt.transform.translation.y,
+            ttt.transform.translation.x);
+
+            static const double scaleForwardSpeed = 0.3;
+            ling.linear.x = scaleForwardSpeed * sqrt(
+            pow(ttt.transform.translation.x, 2) +
+            pow(ttt.transform.translation.y, 2));
+            ling.linear.y = 0;
+            if(sqrt(pow(ttt.transform.translation.x, 2) +
+            pow(ttt.transform.translation.y, 2)) < 0.1){
+            ling.linear.x = 0;
+            ling.angular.z = 0;
+              nstate = approach_shelf2;
+           }
+      }
       //  once the robot is in desired position, set nstate to service_completed
       //  success/failure
       break;
+    case approach_shelf2:
+    {
+            RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
+     std::string fromFrame_tomoveto2 = "obstacle_frame";
+    std::string toFrame_tofollow2 = "robot_base_link";
+    geometry_msgs::msg::TransformStamped ttt;
+        try {
+            rclcpp::Time now = this->get_clock()->now();
+            ttt2 = tf_buffer_move_robot2->lookupTransform(
+                toFrame_tofollow2, fromFrame_tomoveto2,
+                tf2::TimePointZero);//
+            } catch (const tf2::TransformException & ex) {
+            RCLCPP_INFO(
+                this->get_logger(), "Could not transform %s to %s: %s",
+                toFrame_tofollow.c_str(), fromFrame_tomoveto.c_str(), ex.what());
+                nstate = service_completed_failure;
+            return;
+            }
+
+            static const double scaleRotationRate = 0.6;
+            ling.angular.x = 0;
+            ling.angular.y = 0;
+            ling.angular.z = scaleRotationRate * atan2(
+            ttt.transform.translation.y,
+            ttt.transform.translation.x);
+
+            static const double scaleForwardSpeed = 0.3;
+            ling.linear.x = scaleForwardSpeed * sqrt(
+            pow(ttt.transform.translation.x, 2) +
+            pow(ttt.transform.translation.y, 2));
+            ling.linear.y = 0;
+            if(sqrt(pow(ttt.transform.translation.x, 2) +
+            pow(ttt.transform.translation.y, 2)) < 0.1){
+            ling.linear.x = 0;
+            ling.angular.z = 0;
+              nstate = service_completed_success;
+           }
+      }    
+     break;
     case service_completed_success:
-      // notify service callback to send respond
-      // set nstate to service_deactivated
+            RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
+     // do nothing to notify service callback to send respond
       break;
     case service_completed_failure:
-      // notify service callback to send respond
-      // set nstate to service_deactivated
+            RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
+     // do nothing to notify service callback to send respond
       break;
     case service_deactivated:
-      // perform remove bands, and TFs for future use.
       break;
     }
-    RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
+
+
   }
   //--------4. Service related Functions-----------//
   void service_callback(const std::shared_ptr<GoToLoading::Request> request,
                         const std::shared_ptr<GoToLoading::Response> response) {
-    RCLCPP_INFO(this->get_logger(), "Service Callback");
+
     nstate = service_activated;
+    RCLCPP_INFO(this->get_logger(), "Service Callback, state is %d",nstate);
+    attach_to_shelf = request->attach_to_shelf;
+    rclcpp::Rate rate(5); // ROS Rate at 5Hz
     //         request->laser_data.header.frame_id.c_str());
-    response->complete = true;
+    while(!(nstate == service_completed_success || nstate == service_completed_failure))
+    {
+     RCLCPP_INFO(this->get_logger(), "Working on Service nstate %d",nstate);
+     rate.sleep();
+    }
+    if(nstate == service_completed_success){
+        response->complete = true;
+         RCLCPP_INFO(this->get_logger(), "service_completed_success",nstate);
+        nstate = service_deactivated;
+        tf_published = false;
+    }else if(nstate == service_completed_failure){
+    RCLCPP_INFO(this->get_logger(), "service_completed_failure",nstate);
+     response->complete = false;
+     nstate = service_deactivated;
+        tf_published = false;
+    }
+   
+
     //_service_activated = false;
   }
 };
