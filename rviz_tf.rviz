@@ -58,12 +58,14 @@ Visualization Manager:
         All Enabled: false
         cart_frame:
           Value: true
+        obstacle_frame:
+          Value: true
         robot_base_docking_contact_link:
           Value: false
         robot_base_footprint:
           Value: false
         robot_base_link:
-          Value: false
+          Value: true
         robot_front_cover_link:
           Value: false
         robot_front_laser_base_link:
@@ -82,6 +84,8 @@ Visualization Manager:
           Value: false
         robot_imu_link:
           Value: false
+        robot_left_wheel_link:
+          Value: false
         robot_odom:
           Value: true
         robot_omni_backwheel_link:
@@ -89,6 +93,8 @@ Visualization Manager:
         robot_omni_front_leftwheel_link:
           Value: false
         robot_omni_front_rightwheel_link:
+          Value: false
+        robot_right_wheel_link:
           Value: false
         robot_top_cover_link:
           Value: false
@@ -98,9 +104,11 @@ Visualization Manager:
       Show Axes: true
       Show Names: true
       Tree:
-        cart_frame:
-          {}
         robot_odom:
+          cart_frame:
+            {}
+          obstacle_frame:
+            {}
           robot_base_footprint:
             robot_base_link:
               robot_front_cover_link:
@@ -119,11 +127,15 @@ Visualization Manager:
                   {}
               robot_imu_link:
                 {}
+              robot_left_wheel_link:
+                {}
               robot_omni_backwheel_link:
                 {}
               robot_omni_front_leftwheel_link:
                 {}
               robot_omni_front_rightwheel_link:
+                {}
+              robot_right_wheel_link:
                 {}
             robot_top_cover_link:
               {}
@@ -209,25 +221,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 3.0939652919769287
+      Distance: 2.8360869884490967
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 4.407255172729492
-        Y: -2.1586015224456787
-        Z: 0.11901991069316864
+        X: 4.586568832397461
+        Y: -2.2663097381591797
+        Z: 0.14443151652812958
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.8003976941108704
+      Pitch: 1.0603975057601929
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.1553980112075806
+      Yaw: 1.4153976440429688
     Saved: ~
 Window Geometry:
   Displays:

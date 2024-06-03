@@ -295,12 +295,24 @@ private:
   //------- 1. timer_1 related Functions -----------//
   void timer1_callback() {
     RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback Start");
-    if (nstate == approach_shelf) {    
+    if (nstate == approach_shelf || nstate == approach_shelf2) {    
 
             this->move_robot(ling);
         RCLCPP_INFO(this->get_logger(), "linear x %f, angular z %f",ling.linear.x,ling.angular.z);
 
     }
+    if( nstate == service_completed_success){
+                 ling.linear.x = 0;
+            ling.linear.y = 0;
+            ling.linear.z = 0;
+            ling.angular.x = 0;
+            ling.angular.y = 0;
+            ling.angular.z = 0;
+           this->move_robot(ling);
+            RCLCPP_INFO(this->get_logger(), "linear x %f, angular z %f",ling.linear.x,ling.angular.z);
+    }
+
+             
   }
   void move_robot(geometry_msgs::msg::Twist &msg) {
     publisher_1_twist->publish(msg);
@@ -619,6 +631,10 @@ private:
             if(sqrt(pow(ttt.transform.translation.x, 2) +
             pow(ttt.transform.translation.y, 2)) < 0.1){
             ling.linear.x = 0;
+            ling.linear.y = 0;
+            ling.linear.z = 0;
+            ling.angular.x = 0;
+            ling.angular.y = 0;
             ling.angular.z = 0;
               nstate = approach_shelf2;
            }
@@ -631,7 +647,7 @@ private:
             RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
      std::string fromFrame_tomoveto2 = "obstacle_frame";
     std::string toFrame_tofollow2 = "robot_base_link";
-    geometry_msgs::msg::TransformStamped ttt;
+    geometry_msgs::msg::TransformStamped ttt2;
         try {
             rclcpp::Time now = this->get_clock()->now();
             ttt2 = tf_buffer_move_robot2->lookupTransform(
@@ -640,7 +656,7 @@ private:
             } catch (const tf2::TransformException & ex) {
             RCLCPP_INFO(
                 this->get_logger(), "Could not transform %s to %s: %s",
-                toFrame_tofollow.c_str(), fromFrame_tomoveto.c_str(), ex.what());
+                toFrame_tofollow2.c_str(), fromFrame_tomoveto2.c_str(), ex.what());
                 nstate = service_completed_failure;
             return;
             }
@@ -649,17 +665,21 @@ private:
             ling.angular.x = 0;
             ling.angular.y = 0;
             ling.angular.z = scaleRotationRate * atan2(
-            ttt.transform.translation.y,
-            ttt.transform.translation.x);
+            ttt2.transform.translation.y,
+            ttt2.transform.translation.x);
 
-            static const double scaleForwardSpeed = 0.3;
+            static const double scaleForwardSpeed = 0.7;
             ling.linear.x = scaleForwardSpeed * sqrt(
-            pow(ttt.transform.translation.x, 2) +
-            pow(ttt.transform.translation.y, 2));
+            pow(ttt2.transform.translation.x, 2) +
+            pow(ttt2.transform.translation.y, 2));
             ling.linear.y = 0;
-            if(sqrt(pow(ttt.transform.translation.x, 2) +
-            pow(ttt.transform.translation.y, 2)) < 0.1){
+            if(sqrt(pow(ttt2.transform.translation.x, 2) +
+            pow(ttt2.transform.translation.y, 2)) < 0.05){
             ling.linear.x = 0;
+            ling.linear.y = 0;
+            ling.linear.z = 0;
+            ling.angular.x = 0;
+            ling.angular.y = 0;
             ling.angular.z = 0;
               nstate = service_completed_success;
            }
@@ -674,6 +694,7 @@ private:
      // do nothing to notify service callback to send respond
       break;
     case service_deactivated:
+     rclcpp::shutdown();
       break;
     }
 
@@ -697,12 +718,12 @@ private:
         response->complete = true;
          RCLCPP_INFO(this->get_logger(), "service_completed_success",nstate);
         nstate = service_deactivated;
-        tf_published = false;
+
     }else if(nstate == service_completed_failure){
     RCLCPP_INFO(this->get_logger(), "service_completed_failure",nstate);
      response->complete = false;
      nstate = service_deactivated;
-        tf_published = false;
+
     }
    
 

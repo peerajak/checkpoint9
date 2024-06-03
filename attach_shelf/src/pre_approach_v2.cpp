@@ -31,6 +31,7 @@ const float angle_increment = 0.004363333340734243;
 const int total_scan_index = 1081;
 const int half_scan_index = 540;
 enum nodeState { move_to_goal, rotate, approach_shelf, end_program } nstate;
+std::string nstate_string[4] = {"move_to_goal", "rotate", "approach_shelf", "end_program"};
 
 float scan_index_to_radian(int scan_index){
   return float(scan_index-half_scan_index)*angle_increment;
@@ -292,6 +293,7 @@ private:
     auto result_future = client_->async_send_request(
         request, std::bind(&ServiceClient::response_callback, this,
                            std::placeholders::_1));
+    timer_->cancel();
   }
   void
   response_callback(rclcpp::Client<GoToLoading>::SharedFuture future) {
@@ -348,7 +350,7 @@ int main(int argc, char *argv[]) {
              executor.spin_some();
              if(nstate != move_to_goal){
                  executor.remove_node(move_to_goal_node);                 
-                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed to %s",nstate_string[nstate].c_str());
                  executor.add_node(rotation_node);  
              }          
         break;
@@ -356,19 +358,19 @@ int main(int argc, char *argv[]) {
              executor.spin_some();
               if(nstate != rotate){
                  executor.remove_node(rotation_node);                 
-                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");  
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed to %s",nstate_string[nstate].c_str());
                  executor.add_node(service_client_node);            
              }    
         break;
         case approach_shelf: 
              executor.spin_some();
              if(nstate != approach_shelf){
-                 executor.remove_node(service_client_node);                 
-                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed");             
+                 //executor.remove_node(service_client_node);                 
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed to %s",nstate_string[nstate].c_str());          
              }   
         break;
         case  end_program:
-         RCLCPP_INFO(move_to_goal_node->get_logger(), "State: End Program");   
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed to %s",nstate_string[nstate].c_str());
          work_finish = true;  
         break;
         }
