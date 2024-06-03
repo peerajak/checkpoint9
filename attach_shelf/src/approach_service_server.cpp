@@ -15,6 +15,7 @@
 #include "tf2/exceptions.h"
 #include "tf2_ros/buffer.h"
 #include "tf2_ros/static_transform_broadcaster.h"
+#include "tf2_ros/transform_listener.h"
 
 using namespace std::chrono_literals;
 
@@ -148,9 +149,14 @@ If False,
   geometry_msgs::msg::Quaternion current_angle_;
   double current_yaw_rad_;
 
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_publisher_;
+
   //------- 3. Laser related  -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_3_laser;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription_3_laser;
+
 
   //--------4. Service related -----------//
   rclcpp::CallbackGroup::SharedPtr  callback_group_4_service;
@@ -172,6 +178,7 @@ If False,
   }
   void move_robot(geometry_msgs::msg::Twist &msg) { publisher_1_twist->publish(msg); }
   //------- 2. Odom related  Functions -----------//
+ //------- 2. Odom related  Functions -----------//
   void odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     current_pos_ = msg->pose.pose.position;
     current_angle_ = msg->pose.pose.orientation;
@@ -182,12 +189,36 @@ If False,
     RCLCPP_DEBUG(this->get_logger(), "current pos=['%f','%f','%f'",
                  current_pos_.x, current_pos_.y, current_yaw_rad_);
   }
-  double yaw_theta_from_quaternion(float qx, float qy, float qz, float qw) {
+  double yaw_theta_from_quaternion(double qx, double qy, double qz, double qw) {
     double roll_rad, pitch_rad, yaw_rad;
     tf2::Quaternion odom_quat(qx, qy, qz, qw);
     tf2::Matrix3x3 matrix_tf(odom_quat);
     matrix_tf.getRPY(roll_rad, pitch_rad, yaw_rad);
     return yaw_rad; // In radian
+  }
+  std::tuple<double, double> get_p1_to_p2_perpendicular_vector_laser_coordinate(
+      double p1x_laser, double p1y_laser, double p2x_laser, double p2y_laser) {
+    double p1_to_p2_laser_x = p2x_laser - p1x_laser;
+    double p1_to_p2_laser_y = p2y_laser - p1y_laser;
+    double perpen_l1_to_l2_laser_x = 1;
+    double perpen_l1_to_l2_laser_y = -p1_to_p2_laser_x / p1_to_p2_laser_y;
+    return std::tuple<double, double>{perpen_l1_to_l2_laser_x,
+                                      perpen_l1_to_l2_laser_y};
+  }
+  double yaw_degree_radian_between_perpendicular_and_laser_x(
+      double p1p2_perpendicular_x_laser, double p1p2_perpendicular_y_laser) {
+    double x_laser = 1.0;
+    double y_laser = 0;
+    double x_laser_dot_p1p2_perpendicular_laser =
+        p1p2_perpendicular_x_laser * x_laser +
+        p1p2_perpendicular_y_laser * y_laser;
+    double size_of_p1p2_perpendicular_laser =
+        std::sqrt(p1p2_perpendicular_x_laser * p1p2_perpendicular_x_laser +
+                  p1p2_perpendicular_y_laser * p1p2_perpendicular_y_laser);
+    double size_of_x_laser = 1;
+    double sign_of_anser = p1p2_perpendicular_y_laser/abs(p1p2_perpendicular_y_laser);
+    return sign_of_anser*std::acos(x_laser_dot_p1p2_perpendicular_laser /
+                     (size_of_p1p2_perpendicular_laser * size_of_x_laser));
   }
   //------- 3. Laser related Functions -----------//
  void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
@@ -197,10 +228,161 @@ If False,
       //2. perform laser measurement, find the band between two legs
       //3. calculate the position( in world space) of middle of the two leg and statically tf publish it.
       //4. set nstate to tf_published
+      /* if (!tf_published) {
+      int smallest_allowable_group = 3;
+      std::vector<group_of_laser> aggregation_of_groups_of_lasers;
+      std::shared_ptr<group_of_laser> gl(new group_of_laser(2000));
+
+      long unsigned int i = 0;
+      while (i < msg->ranges.size()) {
+        // RCLCPP_INFO(this->get_logger(), " gl state %d", gl->_state);
+        while (i < msg->ranges.size() &&
+               gl->_state == group_of_laser::insertable_state::insertable) {
+          i++;
+          // RCLCPP_INFO(this->get_logger(), "working on %ld, gl state %d",
+          // i,gl->_state);
+          int result_insert = gl->insert(scan_index_to_radian(i),
+                                         msg->ranges[i], msg->intensities[i]);
+          switch (result_insert) {
+          case 0:
+            RCLCPP_INFO(this->get_logger(), "inserted %ld, intensity %f", i,
+                        msg->intensities[i]);
+            break;
+          case 1:; // RCLCPP_INFO(this->get_logger(), "full at %ld", i);
+            break;
+          case 2:; // RCLCPP_INFO(this->get_logger(), "intensity to small %ld,
+                   // %f", i,msg->intensities[i]);
+            break;
+          }
+        }
+        if (gl->size >= smallest_allowable_group) {
+          aggregation_of_groups_of_lasers.push_back(*gl);
+        }
+        if (gl->_state == group_of_laser::insertable_state::full) {
+          RCLCPP_INFO(this->get_logger(), "groups of laser full at %ld", i);
+          gl = std::make_shared<group_of_laser>(2000);
+          RCLCPP_INFO(this->get_logger(), "new gl created state %d",
+                      gl->_state);
+        }
+      }
+
+      RCLCPP_INFO(this->get_logger(), "There are %ld groups of laser",
+                  aggregation_of_groups_of_lasers.size());
+      std::tuple<double, double> P1_laser_polar_coordinate =
+          aggregation_of_groups_of_lasers.front()
+              .get_max_radian_of_the_group_and_corresponding_distance();
+      std::tuple<double, double> P2_laser_polar_coordinate =
+          aggregation_of_groups_of_lasers.back()
+              .get_max_radian_of_the_group_and_corresponding_distance();
+      double P1_r_laser_polar_coordinate_aka_b =
+          std::get<1>(P1_laser_polar_coordinate);
+      double &b = P1_r_laser_polar_coordinate_aka_b;
+      double P1_theta_laser_polar_coordinate_aka_theta1 =
+          std::get<0>(P1_laser_polar_coordinate);
+      double &theta1 = P1_theta_laser_polar_coordinate_aka_theta1;
+      double P2_r_laser_polar_coordinate_aka_c =
+          std::get<1>(P2_laser_polar_coordinate);
+      double &c = P2_r_laser_polar_coordinate_aka_c;
+      double P2_theta_laser_polar_coordinate_aka_theta2 =
+          std::get<0>(P2_laser_polar_coordinate);
+      double &theta2 = P2_theta_laser_polar_coordinate_aka_theta2;
+      RCLCPP_INFO(this->get_logger(), "b=%f, theta1= %f, c=%f, theta2=%f", b,
+                  theta1, c, theta2);
+      // ----------- calculate Pmid_r_laser_coordinate,
+      // Pmid_theta_laser_coordinate, Pmid_z=0 in laser coordinate to type
+      // tf2::Vector3, aka, point_in_child_coordinates---//
+
+      double P1x_laser_coordinate = b * std::cos(theta1); 
+      double P1y_laser_coordinate = b * std::sin(theta1);
+      double P2x_laser_coordinate = c * std::cos(theta2);
+      double P2y_laser_coordinate = c * std::sin(theta2);
+      double Pmidx_laser_coordinate =
+          (P1x_laser_coordinate + P2x_laser_coordinate) / 2;
+      double Pmidy_laser_coordinate =
+          (P1y_laser_coordinate + P2y_laser_coordinate) / 2;
+      double Pmidz_laser_coordinate = 0;
+      RCLCPP_INFO(this->get_logger(),
+                  "Pmidx_laser_coordinate=%f, Pmidy_laser_coordinate= %f",
+                  Pmidx_laser_coordinate, Pmidy_laser_coordinate);
+      //---- calculate end quotanion in such a way that  the robot is facing mid
+      //of the cart----//
+      // answer to type tf2::Quaternion
+      // - we know P1, P2 in laser coordinate, find a unit vector perpendicular
+      // to vector P1-P2.
+      std::tuple<double, double> result_p1p2_perpendicular_laser =
+          get_p1_to_p2_perpendicular_vector_laser_coordinate(
+              P1x_laser_coordinate, P1y_laser_coordinate, P2x_laser_coordinate,
+              P2y_laser_coordinate);
+      double p1p2_perpendicular_x_laser =
+          std::get<0>(result_p1p2_perpendicular_laser);
+      double p1p2_perpendicular_y_laser =
+          std::get<1>(result_p1p2_perpendicular_laser);
+
+      double cart_roll_laser = 0;
+      double cart_pitch_laser = 0;
+      double cart_yaw_laser =  yaw_degree_radian_between_perpendicular_and_laser_x(
+                     p1p2_perpendicular_x_laser, p1p2_perpendicular_y_laser);
+      RCLCPP_INFO(this->get_logger(), "p1p2_x_laser= %f, p1p2_y_laser= %f, cart_yaw_laser = %f",
+                      p1p2_perpendicular_x_laser,p1p2_perpendicular_y_laser, cart_yaw_laser);
+      tf2::Quaternion q_cart_laser;
+      q_cart_laser.setRPY(cart_roll_laser, cart_pitch_laser, cart_yaw_laser);
+
+      // --------- TF2 Calculation of Laser Position w.r.t robot_odom Coordinate
+      // ------------//
+
+      geometry_msgs::msg::TransformStamped tf_laser_to_odom;
+      rclcpp::Time now = this->get_clock()->now();
+      std::string fromFrame = "robot_front_laser_base_link";
+      std::string toFrame = "robot_odom";
+      try {
+        tf_laser_to_odom =
+            tf_buffer_->lookupTransform(toFrame, fromFrame, tf2::TimePointZero);
+      } catch (const tf2::TransformException &ex) {
+        RCLCPP_INFO(this->get_logger(), "Could not transform %s to %s: %s",
+                    toFrame.c_str(), fromFrame.c_str(), ex.what());
+        return;
+      }
+
+      tf2::Quaternion q(tf_laser_to_odom.transform.rotation.x,
+                        tf_laser_to_odom.transform.rotation.y,
+                        tf_laser_to_odom.transform.rotation.z,
+                        tf_laser_to_odom.transform.rotation.w);
+      tf2::Vector3 p(tf_laser_to_odom.transform.translation.x,
+                     tf_laser_to_odom.transform.translation.y,
+                     tf_laser_to_odom.transform.translation.z);
+      tf2::Transform transform(q, p);
+
+      tf2::Vector3 point_in_laser_coordinates(Pmidx_laser_coordinate,
+                                              Pmidy_laser_coordinate,
+                                              0);
+      tf2::Vector3 point_in_odom_coordinates =
+          transform * point_in_laser_coordinates;
+      tf2::Quaternion q_cart_robotodom = transform * q_cart_laser;
+
+      //------------ broadcast TF cart to robot_odom
+
+      std::string fromFrameRel = "robot_odom";
+      std::string toFrameRel = "cart_frame";
+      geometry_msgs::msg::TransformStamped trans;
+      rclcpp::Time now2 = this->get_clock()->now();
+      trans.header.stamp = now2;
+      trans.header.frame_id = fromFrameRel;
+      trans.child_frame_id = toFrameRel;
+      trans.transform.translation.x = point_in_odom_coordinates.getX();
+      trans.transform.translation.y = point_in_odom_coordinates.getY();
+      trans.transform.translation.z = point_in_odom_coordinates.getZ();
+      trans.transform.rotation.x = q_cart_robotodom.getX();
+      trans.transform.rotation.y = q_cart_robotodom.getY();
+      trans.transform.rotation.z = q_cart_robotodom.getZ();
+      trans.transform.rotation.w = q_cart_robotodom.getW();
+
+      tf_static_publisher_->sendTransform(trans);
+
+      tf_published = true;
+    }*/
       nstate = tf_published;
       break;
       case tf_published:
-        //perform switching state base on bool attach_to_shelf 
         if(attach_to_shelf){
           nstate = approach_shelf;
         }else{

@@ -183,7 +183,19 @@ private:
     return sign_of_anser*std::acos(x_laser_dot_p1p2_perpendicular_laser /
                      (size_of_p1p2_perpendicular_laser * size_of_x_laser));
   }
-
+  std::tuple<double, double> get_obstracle_cm_into_obstracle(double p1_to_p2_perpendicular_vector_x_laser_coordinate,
+   double p1_to_p2_perpendicular_vector_y_laser_coordinate, double pmid_x_laser_coordinate, double pmid_y_laser_coordinate){
+   // call the final position point k, or vector k
+   double &kcm = this->obstracle;//in meter unit
+   double size_of_p1p2_perpendicular_laser =
+        std::sqrt(p1_to_p2_perpendicular_vector_x_laser_coordinate *p1_to_p2_perpendicular_vector_x_laser_coordinate +
+                  p1_to_p2_perpendicular_vector_y_laser_coordinate * p1_to_p2_perpendicular_vector_y_laser_coordinate);
+   double scalar_multiplier = kcm/size_of_p1p2_perpendicular_laser;
+   double k_x_laser_coordinate = pmid_x_laser_coordinate + scalar_multiplier*p1_to_p2_perpendicular_vector_x_laser_coordinate;
+   double k_y_laser_coordinate = pmid_y_laser_coordinate + scalar_multiplier*p1_to_p2_perpendicular_vector_y_laser_coordinate; 
+    return std::tuple<double, double>{k_x_laser_coordinate,
+                                      k_y_laser_coordinate};
+   }
   //------- 3. Laser related Functions -----------//
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
 
@@ -311,11 +323,11 @@ private:
                      tf_laser_to_odom.transform.translation.z);
       tf2::Transform transform(q, p);
 
-      tf2::Vector3 point_in_laser_coordinates(Pmidx_laser_coordinate,
+      tf2::Vector3 mid_point_in_laser_coordinates(Pmidx_laser_coordinate,
                                               Pmidy_laser_coordinate,
                                               0);
-      tf2::Vector3 point_in_odom_coordinates =
-          transform * point_in_laser_coordinates;
+      tf2::Vector3 mid_point_in_odom_coordinates =
+          transform * mid_point_in_laser_coordinates;
       tf2::Quaternion q_cart_robotodom = transform * q_cart_laser;
 
       //------------ broadcast TF cart to robot_odom
@@ -327,17 +339,40 @@ private:
       trans.header.stamp = now2;
       trans.header.frame_id = fromFrameRel;
       trans.child_frame_id = toFrameRel;
-      trans.transform.translation.x = point_in_odom_coordinates.getX();
-      trans.transform.translation.y = point_in_odom_coordinates.getY();
-      trans.transform.translation.z = point_in_odom_coordinates.getZ();
+      trans.transform.translation.x = mid_point_in_odom_coordinates.getX();
+      trans.transform.translation.y = mid_point_in_odom_coordinates.getY();
+      trans.transform.translation.z = mid_point_in_odom_coordinates.getZ();
       trans.transform.rotation.x = q_cart_robotodom.getX();
       trans.transform.rotation.y = q_cart_robotodom.getY();
       trans.transform.rotation.z = q_cart_robotodom.getZ();
       trans.transform.rotation.w = q_cart_robotodom.getW();
 
       tf_static_publisher_->sendTransform(trans);
-
+      
+      toFrameRel = "obstracle_frame";
+      std::tuple<double, double> k_point_laser = get_obstracle_cm_into_obstracle( p1p2_perpendicular_x_laser,
+    p1p2_perpendicular_y_laser, Pmidx_laser_coordinate,Pmidy_laser_coordinate);
+      double k_point_x_laser = std::get<0>(k_point_laser);
+      double k_point_y_laser = std::get<1>(k_point_laser);
+      tf2::Vector3 k_point_in_laser_coordinates( k_point_x_laser,
+                                              k_point_y_laser,
+                                              0);
+      tf2::Vector3 k_point_in_odom_coordinates =  transform * k_point_in_laser_coordinates;
+      geometry_msgs::msg::TransformStamped trans2;
+      rclcpp::Time now3 = this->get_clock()->now();
+      trans2.header.stamp = now3;
+      trans2.header.frame_id = fromFrameRel;
+      trans2.child_frame_id = toFrameRel;
+      trans2.transform.translation.x = k_point_in_odom_coordinates.getX();
+      trans2.transform.translation.y = k_point_in_odom_coordinates.getY();
+      trans2.transform.translation.z = k_point_in_odom_coordinates.getZ();
+      trans2.transform.rotation.x = q_cart_robotodom.getX();
+      trans2.transform.rotation.y = q_cart_robotodom.getY();
+      trans2.transform.rotation.z = q_cart_robotodom.getZ();
+      trans2.transform.rotation.w = q_cart_robotodom.getW();
+      tf_static_publisher_->sendTransform(trans2);
       tf_published = true;
+   
     }
   }
 
@@ -369,17 +404,18 @@ private:
 
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher1_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription1_;
-  bool tf_published;
+
   //------- 2. Odom related  -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_2_odom;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subscription_2_odom;
   geometry_msgs::msg::Point current_pos_;
   geometry_msgs::msg::Quaternion current_angle_;
   double current_yaw_rad_;
+  bool tf_published;
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
-
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_publisher_;
+     double obstracle = 0.3;
   //------- 3. Laser related  -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_3_laser;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr
