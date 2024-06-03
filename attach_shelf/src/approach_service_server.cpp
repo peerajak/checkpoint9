@@ -616,26 +616,20 @@ private:
             return;
             }
 
-            static const double scaleRotationRate = 0.6;
+             double scaleRotationRate = 0.6;
             ling.angular.x = 0;
             ling.angular.y = 0;
             ling.angular.z = scaleRotationRate * atan2(
             ttt.transform.translation.y,
             ttt.transform.translation.x);
 
-            static const double scaleForwardSpeed = 0.3;
+             double scaleForwardSpeed = 0.3;
             ling.linear.x = scaleForwardSpeed * sqrt(
             pow(ttt.transform.translation.x, 2) +
             pow(ttt.transform.translation.y, 2));
             ling.linear.y = 0;
             if(sqrt(pow(ttt.transform.translation.x, 2) +
             pow(ttt.transform.translation.y, 2)) < 0.1){
-            ling.linear.x = 0;
-            ling.linear.y = 0;
-            ling.linear.z = 0;
-            ling.angular.x = 0;
-            ling.angular.y = 0;
-            ling.angular.z = 0;
               nstate = approach_shelf2;
            }
       }
@@ -661,20 +655,22 @@ private:
             return;
             }
 
-            static const double scaleRotationRate = 0.6;
+            double scaleRotationRate = 0.6;
             ling.angular.x = 0;
             ling.angular.y = 0;
             ling.angular.z = scaleRotationRate * atan2(
             ttt2.transform.translation.y,
             ttt2.transform.translation.x);
 
-            static const double scaleForwardSpeed = 0.7;
+            double scaleForwardSpeed = 0.7;
             ling.linear.x = scaleForwardSpeed * sqrt(
             pow(ttt2.transform.translation.x, 2) +
             pow(ttt2.transform.translation.y, 2));
             ling.linear.y = 0;
+
+
             if(sqrt(pow(ttt2.transform.translation.x, 2) +
-            pow(ttt2.transform.translation.y, 2)) < 0.05){
+            pow(ttt2.transform.translation.y, 2)) < 0.01){
             ling.linear.x = 0;
             ling.linear.y = 0;
             ling.linear.z = 0;
@@ -694,7 +690,14 @@ private:
      // do nothing to notify service callback to send respond
       break;
     case service_deactivated:
-     rclcpp::shutdown();
+                ling.linear.x = 0;
+            ling.linear.y = 0;
+            ling.linear.z = 0;
+            ling.angular.x = 0;
+            ling.angular.y = 0;
+            ling.angular.z = 0;
+            move_robot(ling);
+
       break;
     }
 
