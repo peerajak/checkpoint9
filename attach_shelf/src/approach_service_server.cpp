@@ -77,11 +77,14 @@ double scan_index_to_degree(int scan_index) {
   return double(scan_index - half_scan_index) * angle_increment / pi * 180;
 }
 
-float radian_difference(float first, float second) {
+double radian_difference(double first, double second) {
   return std::abs(first - second) <= pi ? first - second
                                         : (first - second) - 2 * pi;
 }
 
+double magnitude_of_vector(double x_length, double y_length){
+   return sqrt(x_length*x_length + y_length*y_length);
+}
 
 class group_of_laser {
 public:
@@ -284,6 +287,7 @@ private:
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_publisher_;
   double obstacle = 0.3;
   bool tf_published;
+  tf2::Vector3 k_point_in_odom_coordinates;
   //------- 3. Laser related  -----------//
   rclcpp::CallbackGroup::SharedPtr callback_group_3_laser;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr
@@ -573,8 +577,10 @@ private:
         double k_point_y_laser = std::get<1>(k_point_laser);
         tf2::Vector3 k_point_in_laser_coordinates(k_point_x_laser,
                                                   k_point_y_laser, 0);
-        tf2::Vector3 k_point_in_odom_coordinates =
+        k_point_in_odom_coordinates =
             transform * k_point_in_laser_coordinates;
+         RCLCPP_INFO(this->get_logger(), "k_point_in_odom_coordinates position in odom cooordinate x: %f, y: %f",
+         k_point_in_odom_coordinates.getX(),k_point_in_odom_coordinates.getY());
         geometry_msgs::msg::TransformStamped trans2;
         rclcpp::Time now3 = this->get_clock()->now();
         trans2.header.stamp = now3;
@@ -625,30 +631,28 @@ private:
             return;
             }
 
-
+            RCLCPP_INFO(this->get_logger(), "ttt.x: %f, ttt.y: %f, atan radian %f",
+            ttt.transform.translation.x,ttt.transform.translation.y, atan(
+            ttt.transform.translation.y/ttt.transform.translation.x));  
             double scaleRotationRate = 0.6;
-             double scaleForwardSpeed = 0.3;
-            ling.linear.x = scaleForwardSpeed * sqrt(
-            pow(ttt.transform.translation.x, 2) +
-            pow(ttt.transform.translation.y, 2));
+             double scaleForwardSpeed = 1.0;
+            //double magnitude_of_ttt_linear = magnitude_of_vector(ttt.transform.translation.x,ttt.transform.translation.y);
+            ling.linear.x = scaleForwardSpeed *  ttt.transform.translation.x;
             ling.linear.y = 0;
-            if(sqrt(pow(ttt.transform.translation.x, 2) +
-            pow(ttt.transform.translation.y, 2)) < 0.1){
+            if(abs(ttt.transform.translation.x) < 0.01){
                double target_yaw_rad = yaw_theta_from_quaternion(
                 ttt.transform.rotation.x, ttt.transform.rotation.y,
                 ttt.transform.rotation.z, ttt.transform.rotation.w);
                ling.angular.z = scaleRotationRate*target_yaw_rad;  
-               if(sqrt(pow(ttt.transform.translation.x, 2) +
-            pow(ttt.transform.translation.y, 2)) < 0.1 && target_yaw_rad <0.174){
+               if(abs(ttt.transform.translation.x) < 0.01 && target_yaw_rad <0.05){
                   nstate = approach_shelf2;
                }            
            } else {
 
             ling.angular.x = 0;
             ling.angular.y = 0;
-            ling.angular.z = scaleRotationRate * atan2(
-            ttt.transform.translation.y,
-            ttt.transform.translation.x);
+            ling.angular.z = scaleRotationRate * atan(
+            ttt.transform.translation.y/ttt.transform.translation.x);
            }
 
 
@@ -676,32 +680,60 @@ private:
                 nstate = service_completed_failure;
             return;
             }
+
+            /*
+            double scaleRotationRate = 0.6;
+             double scaleForwardSpeed = 1.0;
+           double magnitude_of_ttt2_linear = magnitude_of_vector(ttt2.transform.translation.x,ttt2.transform.translation.y);
             
-            double scaleRotationRate = 0.4;
+            ling.linear.x = scaleForwardSpeed *   magnitude_of_ttt2_linear ;
+            ling.linear.y = 0;
+
+           
+            if(magnitude_of_ttt2_linear < 0.01){
+                double scaleRotationRate = 0.6;
+                double target_yaw_rad = yaw_theta_from_quaternion(
+                ttt2.transform.rotation.x, ttt2.transform.rotation.y,
+                ttt2.transform.rotation.z, ttt2.transform.rotation.w);
+                ling.angular.z = scaleRotationRate*target_yaw_rad;   
+                if(magnitude_of_ttt2_linear < 0.005){
+                    nstate = service_completed_success;
+                }            
+           } else {
+            ling.angular.x = 0;
+            ling.angular.y = 0;
+            ling.angular.z = scaleRotationRate * atan(
+            ttt2.transform.translation.y/ttt2.transform.translation.x);
+           }
+      
+           */
+           
+       
+            double scaleRotationRate = 0.6;
             double target_yaw_rad = yaw_theta_from_quaternion(
             ttt2.transform.rotation.x, ttt2.transform.rotation.y,
             ttt2.transform.rotation.z, ttt2.transform.rotation.w);
             ling.angular.z = scaleRotationRate*target_yaw_rad;   
-
-
-            double scaleForwardSpeed = 0.9;
-            ling.linear.x = scaleForwardSpeed * sqrt(
-            pow(ttt2.transform.translation.x, 2) +
-            pow(ttt2.transform.translation.y, 2));
+            double scaleForwardSpeed = 1.0;
+            ling.linear.x = scaleForwardSpeed * ttt2.transform.translation.x;
             ling.linear.y = 0;
-             RCLCPP_INFO(this->get_logger(), "x speed is %f",nstate_string[nstate].c_str());    
-         
-            if(sqrt(pow(ttt2.transform.translation.x, 2) +
-            pow(ttt2.transform.translation.y, 2)) < 0.001){
+            RCLCPP_INFO(this->get_logger(), "ttt2.x: %f, ttt2.y: %f",ttt2.transform.translation.x,ttt2.transform.translation.y);    
+               
+           RCLCPP_INFO(this->get_logger(), "current pos=['%f','%f'",
+                 current_pos_.x, current_pos_.y); 
+          RCLCPP_INFO(this->get_logger(), "k_point_in_odom_coordinates position in odom cooordinate x: %f, y: %f",
+         k_point_in_odom_coordinates.getX(),k_point_in_odom_coordinates.getY());  
+            if(abs(ttt2.transform.translation.x) < 0.008){
             ling.linear.x = 0;
             ling.linear.y = 0;
             ling.linear.z = 0;
             ling.angular.x = 0;
             ling.angular.y = 0;
             ling.angular.z = 0;
+
               nstate = service_completed_success;
            }
-           
+       
       }    
      break;
     case service_completed_success:
@@ -720,6 +752,7 @@ private:
             ling.angular.y = 0;
             ling.angular.z = 0;
             move_robot(ling);
+  rclcpp::shutdown();
 
       break;
     }

@@ -1,6 +1,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/utilities.hpp"
+#include "std_msgs/msg/detail/empty__struct.hpp"
 using std::placeholders::_1;
 
 #include "geometry_msgs/msg/detail/point__struct.hpp"
@@ -274,6 +275,8 @@ private:
   float degrees;
   rclcpp::Client<GoToLoading>::SharedPtr client_;
   rclcpp::TimerBase::SharedPtr timer_;
+  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr publisher_lift;
+  
     void timer_callback() {
         while (!client_->wait_for_service(1s)) {
         if (!rclcpp::ok()) {
@@ -302,6 +305,9 @@ private:
       auto service_response = future.get();
       if( service_response->complete){
             RCLCPP_INFO(this->get_logger(), "Result: success");
+            // lift the cart     
+            std_msgs::msg::Empty msgs_empty;
+            publisher_lift->publish(msgs_empty);
       }else{
           RCLCPP_INFO(this->get_logger(), "Result: failure");
       }
@@ -323,6 +329,8 @@ public:
     client_ = this->create_client<GoToLoading>("approach_shelf");
     timer_ = this->create_wall_timer(
         1s, std::bind(&ServiceClient::timer_callback, this));
+    publisher_lift =
+        this->create_publisher<std_msgs::msg::Empty>("/elevator_up", 1);
   }
 
 };
@@ -365,8 +373,9 @@ int main(int argc, char *argv[]) {
         case approach_shelf: 
              executor.spin_some();
              if(nstate != approach_shelf){
-                 //executor.remove_node(service_client_node);                 
-                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed to %s",nstate_string[nstate].c_str());          
+                 //executor.remove_node(service_client_node);
+                 RCLCPP_INFO(move_to_goal_node->get_logger(), "State Changed to %s",nstate_string[nstate].c_str()); 
+
              }   
         break;
         case  end_program:
