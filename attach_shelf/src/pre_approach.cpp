@@ -45,12 +45,12 @@ class MoveToGoal : public rclcpp::Node {
 public:
   MoveToGoal() : Node("move_to_goal_node") {
     this->declare_parameter("obstacle", 0.0);
-    this->declare_parameter("degrees", 0.0);
+    this->declare_parameter("degrees", 0);
     obstacle =
         this->get_parameter("obstacle").get_parameter_value().get<float>();
 
-    degrees = this->get_parameter("degrees").get_parameter_value().get<float>();
-    RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
+    degrees = this->get_parameter("degrees").get_parameter_value().get<int>();
+    RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degree %d",
                 obstacle, degrees);
     callback_group_1 = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -132,7 +132,7 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription1_;
   int direction_ = 360; //[0-719]
   float obstacle;
-  float degrees;
+  int degrees;
   bool position_reached;
 
 };
@@ -141,12 +141,12 @@ class Rotation : public rclcpp::Node {
 public:
   Rotation() : Node("rotation_node") {
     this->declare_parameter("obstacle", 0.0);
-    this->declare_parameter("degrees", 0.0);
+    this->declare_parameter("degrees", 0);
     obstacle =
         this->get_parameter("obstacle").get_parameter_value().get<float>();
 
-    degrees = this->get_parameter("degrees").get_parameter_value().get<float>();
-    RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degrees %f",
+    degrees = this->get_parameter("degrees").get_parameter_value().get<int>();
+    RCLCPP_INFO(this->get_logger(), "Got params obstracle: %f, degree %d",
                 obstacle, degrees);
     callback_group_1 = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -167,7 +167,7 @@ public:
     publisher1_ =
         this->create_publisher<geometry_msgs::msg::Twist>("/robot/cmd_vel", 10);
 
-   target_yaw_rad_ = degree_to_radian(degrees);
+   target_yaw_rad_ = degree_to_radian(float(degrees));
   }
 
 private:
@@ -241,7 +241,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subscription1_;
   int direction_ = 360; //[0-719]
   float obstacle;
-  float degrees;
+  int degrees;
   bool position_reached;
   geometry_msgs::msg::Point desire_pos_, current_pos_;
   geometry_msgs::msg::Quaternion desire_angle_, current_angle_;
