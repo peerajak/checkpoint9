@@ -42,5 +42,8 @@ roslaunch load_params load_params_base.launch
 source /opt/ros/galactic/setup.bash
 ros2 run ros1_bridge parameter_bridge
 
-ros2 launch attach_shelf attach_to_shelf_preapproach_v2_only.launch.py obstacle:=0.3 degrees:=-90 final_approach:=false
 ros2 launch attach_shelf attach_to_shelf_service_only.launch.py obstacle:=0.3 degrees:=-90 final_approach:=false
+ros2 launch attach_shelf attach_to_shelf_preapproach_v2_only.launch.py obstacle:=0.3 degrees:=-90 final_approach:=false
+
+ros2 launch attach_shelf attach_to_shelf_service_only.launch.py obstacle:=0.3 degrees:=-90 final_approach:=true
+ros2 launch attach_shelf attach_to_shelf_preapproach_v2_only.launch.py obstacle:=0.3 degrees:=-90 final_approach:=true

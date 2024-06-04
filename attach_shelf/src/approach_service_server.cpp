@@ -76,6 +76,13 @@ double scan_index_to_radian(int scan_index) {
 double scan_index_to_degree(int scan_index) {
   return double(scan_index - half_scan_index) * angle_increment / pi * 180;
 }
+
+float radian_difference(float first, float second) {
+  return std::abs(first - second) <= pi ? first - second
+                                        : (first - second) - 2 * pi;
+}
+
+
 class group_of_laser {
 public:
   enum insertable_state { insertable, full } _state;
@@ -385,6 +392,7 @@ private:
   }
   //------- 3. Laser related Functions -----------//
   void laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+
     switch (nstate) {
     case service_activated:
     {
@@ -555,7 +563,7 @@ private:
 
         tf_static_publisher_->sendTransform(trans);
 
-        //  obstacle frame static TF braodcast
+        // obstacle frame static TF braodcast
         toFrameRel = "obstacle_frame";
         std::tuple<double, double> k_point_laser =
             get_obstacle_cm_into_obstacle(
@@ -581,6 +589,7 @@ private:
         trans2.transform.rotation.w = q_cart_robotodom.getW();
 
         tf_static_publisher_->sendTransform(trans2);
+        
 
         tf_published = true;
         nstate = tf_already_published;
@@ -616,13 +625,8 @@ private:
             return;
             }
 
-             double scaleRotationRate = 0.6;
-            ling.angular.x = 0;
-            ling.angular.y = 0;
-            ling.angular.z = scaleRotationRate * atan2(
-            ttt.transform.translation.y,
-            ttt.transform.translation.x);
 
+            double scaleRotationRate = 0.6;
              double scaleForwardSpeed = 0.3;
             ling.linear.x = scaleForwardSpeed * sqrt(
             pow(ttt.transform.translation.x, 2) +
@@ -630,8 +634,24 @@ private:
             ling.linear.y = 0;
             if(sqrt(pow(ttt.transform.translation.x, 2) +
             pow(ttt.transform.translation.y, 2)) < 0.1){
-              nstate = approach_shelf2;
+               double target_yaw_rad = yaw_theta_from_quaternion(
+                ttt.transform.rotation.x, ttt.transform.rotation.y,
+                ttt.transform.rotation.z, ttt.transform.rotation.w);
+               ling.angular.z = scaleRotationRate*target_yaw_rad;  
+               if(sqrt(pow(ttt.transform.translation.x, 2) +
+            pow(ttt.transform.translation.y, 2)) < 0.1 && target_yaw_rad <0.174){
+                  nstate = approach_shelf2;
+               }            
+           } else {
+
+            ling.angular.x = 0;
+            ling.angular.y = 0;
+            ling.angular.z = scaleRotationRate * atan2(
+            ttt.transform.translation.y,
+            ttt.transform.translation.x);
            }
+
+
       }
       //  once the robot is in desired position, set nstate to service_completed
       //  success/failure
@@ -639,6 +659,8 @@ private:
     case approach_shelf2:
     {
             RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
+
+            
      std::string fromFrame_tomoveto2 = "obstacle_frame";
     std::string toFrame_tofollow2 = "robot_base_link";
     geometry_msgs::msg::TransformStamped ttt2;
@@ -654,23 +676,23 @@ private:
                 nstate = service_completed_failure;
             return;
             }
+            
+            double scaleRotationRate = 0.4;
+            double target_yaw_rad = yaw_theta_from_quaternion(
+            ttt2.transform.rotation.x, ttt2.transform.rotation.y,
+            ttt2.transform.rotation.z, ttt2.transform.rotation.w);
+            ling.angular.z = scaleRotationRate*target_yaw_rad;   
 
-            double scaleRotationRate = 0.6;
-            ling.angular.x = 0;
-            ling.angular.y = 0;
-            ling.angular.z = scaleRotationRate * atan2(
-            ttt2.transform.translation.y,
-            ttt2.transform.translation.x);
 
-            double scaleForwardSpeed = 0.7;
+            double scaleForwardSpeed = 0.9;
             ling.linear.x = scaleForwardSpeed * sqrt(
             pow(ttt2.transform.translation.x, 2) +
             pow(ttt2.transform.translation.y, 2));
             ling.linear.y = 0;
-
-
+             RCLCPP_INFO(this->get_logger(), "x speed is %f",nstate_string[nstate].c_str());    
+         
             if(sqrt(pow(ttt2.transform.translation.x, 2) +
-            pow(ttt2.transform.translation.y, 2)) < 0.01){
+            pow(ttt2.transform.translation.y, 2)) < 0.001){
             ling.linear.x = 0;
             ling.linear.y = 0;
             ling.linear.z = 0;
@@ -679,6 +701,7 @@ private:
             ling.angular.z = 0;
               nstate = service_completed_success;
            }
+           
       }    
      break;
     case service_completed_success:
@@ -714,7 +737,7 @@ private:
     //         request->laser_data.header.frame_id.c_str());
     while(!(nstate == service_completed_success || nstate == service_completed_failure))
     {
-     RCLCPP_INFO(this->get_logger(), "Working on Service nstate %d",nstate);
+     RCLCPP_INFO(this->get_logger(), "Working on Service nstate %s",nstate_string[nstate].c_str());
      rate.sleep();
     }
     if(nstate == service_completed_success){
