@@ -29,6 +29,8 @@ ros2 run ros1_bridge parameter_bridge
 ros2 launch attach_shelf pre_approach.launch.xml obstacle:=0.3 degrees:=-90
 
 My Result
+![alt text](checkpoint9_task1_robot_coming_in_rviz.png)
+![alt text](checkpoint9_task1_robot_arrived.png)
 
 
 ## Task 2   Final Approach 
@@ -76,11 +78,15 @@ My Result
    - Service Return service_failure
 [approach_service_server_node-2] [INFO] [1717557180.881785738] [mid_legs_tf_service_node]: Laser Callback End, state is service_completed_failure
 [approach_service_server_node-2] [INFO] [1717557180.916042273] [mid_legs_tf_service_node]: service_completed_failure
+![alt text](checkpoint9_task21_robot_published_TF_and_Returnfailed.png)
 
 
 - final_approach:=true
 
-
+![alt text](checkpoint9_task2_robot_moving_to_TF.png)
+![alt text](checkpoint9_task2_robot_moving_30cm_beyond_TF.png)
+![alt text](checkpoint9_task2_robot_arrived_30cm_and_lift.png)
+![alt text](checkpoint9_task2_robot_lift_cart.png)
 
 Service completion.
 [approach_service_server_node-2] [INFO] [1717556913.181931615] [mid_legs_tf_service_node]: Laser Callback End, state is service_completed_success
