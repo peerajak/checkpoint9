@@ -4,6 +4,8 @@
 
 For this first task, you will create a ROS2 node that makes the robot go to the loading position (facing the shelf).
 
+![alt text](checkpoint9_requirement_task1)
+
 For achieving this, follow the next steps:
 
 - Create a package inside /ros2_ws named attach_shelf.
@@ -29,9 +31,11 @@ ros2 run ros1_bridge parameter_bridge
 ros2 launch attach_shelf pre_approach.launch.xml obstacle:=0.3 degrees:=-90
 
 My Result
+
 ![alt text](checkpoint9_task1_robot_coming_in_rviz.png)
 ![alt text](checkpoint9_task1_robot_arrived.png)
-![alt text](checkpoint9_requirement_task1)
+![alt text](false_service.png)
+
 
 ## Task 2   Final Approach 
 In this 2nd Task of the project, you will create a ROS2 service that performs the final approach motion. This is:
@@ -78,7 +82,8 @@ My Result
    - Service Return service_failure
 [approach_service_server_node-2] [INFO] [1717557180.881785738] [mid_legs_tf_service_node]: Laser Callback End, state is service_completed_failure
 [approach_service_server_node-2] [INFO] [1717557180.916042273] [mid_legs_tf_service_node]: service_completed_failure
-![alt text](false_service.png)
+
+
 ![alt text](false_service2.png)
 
 
