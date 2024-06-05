@@ -4,7 +4,7 @@
 
 For this first task, you will create a ROS2 node that makes the robot go to the loading position (facing the shelf).
 
-![alt text](checkpoint9_requirement_task1)
+![alt text](checkpoint9_requirement_task1.png)
 
 For achieving this, follow the next steps:
 
