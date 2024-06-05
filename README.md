@@ -20,15 +20,21 @@ Your node will use the following parameters:
 
 How to run for Task1
 -- Terminal1
+'''
 source ~/simulation_ws/devel/setup.bash
 roslaunch rb1_base_gazebo warehouse_rb1_laser_detect_legs.launch
+'''
 -- Terminal2
+'''
 source ~/catkin_ws/devel/setup.bash
 roslaunch load_params load_params_base.launch
 source /opt/ros/galactic/setup.bash
 ros2 run ros1_bridge parameter_bridge
+'''
 -- Terminal3
+'''
 ros2 launch attach_shelf pre_approach.launch.xml obstacle:=0.3 degrees:=-90
+'''
 
 My Result
 
@@ -60,20 +66,30 @@ To achieve this, follow the next steps:
 
 How to run for Task2
 -- Terminal1
+'''
 source ~/simulation_ws/devel/setup.bash
 roslaunch rb1_base_gazebo warehouse_rb1_laser_detect_legs.launch
+'''
 -- Terminal2
+'''
 source ~/catkin_ws/devel/setup.bash
 roslaunch load_params load_params_base.launch
 source /opt/ros/galactic/setup.bash
 ros2 run ros1_bridge parameter_bridge
+'''
 -- Terminal3
+'''
 cd ros2_ws/src/checkpoint9
 rviz2 -d rviz_tf.rviz
+'''
 -- Terminal4
+'''
 ros2 launch attach_shelf attach_to_shelf.launch.py obstacle:=0.3 degrees:=-90 final_approach:=false
+'''
 or
+'''
 ros2 launch attach_shelf attach_to_shelf.launch.py obstacle:=0.3 degrees:=-90 final_approach:=true
+'''
 
 
 My Result
