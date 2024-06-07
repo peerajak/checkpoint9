@@ -50,3 +50,8 @@ ros2 launch attach_shelf attach_to_shelf_preapproach_v2_only.launch.py obstacle:
 
 
 ros2 launch attach_shelf attach_to_shelf.launch.py obstacle:=0.3 degrees:=-90 final_approach:=true
+
+
+
+my_components
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args --remap cmd_vel:=/diffbot_base_controller/cmd_vel_unstamped
