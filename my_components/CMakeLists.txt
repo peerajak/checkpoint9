@@ -48,10 +48,43 @@ ament_target_dependencies(pre_approach
 rclcpp_components_register_nodes(pre_approach "my_components::PreApproach")
 set(node_plugins "${node_plugins}my_components::PreApproach;$<TARGET_FILE:pre_approach>\n")
 
+
+
+add_library(server_component SHARED src/server_component.cpp)
+target_compile_definitions(server_component PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(server_component
+  "sensor_msgs"
+  "nav_msgs"
+  "std_msgs"
+  "custom_interfaces"
+  "tf2"
+  "tf2_ros"
+  "rclcpp"
+  "rclcpp_components"
+  "geometry_msgs")
+rclcpp_components_register_nodes(server_component "my_components::MidLegsTFService")
+set(node_plugins "${node_plugins}my_components::MidLegsTFService;$<TARGET_FILE:server_component>\n")
+
+add_executable(AttachServer
+  src/manual_server_composition.cpp)
+target_link_libraries(AttachServer
+server_component
+)
+ament_target_dependencies(AttachServer
+rclcpp sensor_msgs geometry_msgs nav_msgs std_msgs custom_interfaces tf2 tf2_ros)
+
+
+
 install(TARGETS
   pre_approach
+  server_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+
+install(TARGETS
+  AttachServer
+  DESTINATION lib/${PROJECT_NAME})
+
 
 ament_package()
