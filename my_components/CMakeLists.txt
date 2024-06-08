@@ -48,6 +48,35 @@ ament_target_dependencies(pre_approach
 rclcpp_components_register_nodes(pre_approach "my_components::PreApproach")
 set(node_plugins "${node_plugins}my_components::PreApproach;$<TARGET_FILE:pre_approach>\n")
 
+add_library(movetogoal SHARED src/movetogoal.cpp)
+target_compile_definitions(movetogoal PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(movetogoal
+  "rclcpp"
+  "rclcpp_components"
+  "geometry_msgs"
+  "nav_msgs"
+  "custom_interfaces"
+  "sensor_msgs"
+  "tf2" 
+  "tf2_ros")
+rclcpp_components_register_nodes(movetogoal "my_components::MoveToGoal")
+set(node_plugins "${node_plugins}my_components::MoveToGoal;$<TARGET_FILE:movetogoal>\n")
+
+add_library(rotation SHARED src/rotation.cpp)
+target_compile_definitions(rotation PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(rotation
+  "rclcpp"
+  "rclcpp_components"
+  "geometry_msgs"
+  "nav_msgs"
+  "custom_interfaces"
+  "sensor_msgs"
+  "tf2" 
+  "tf2_ros")
+rclcpp_components_register_nodes(rotation "my_components::Rotation")
+set(node_plugins "${node_plugins}my_components::Rotation;$<TARGET_FILE:movetogoal>\n")
+
+
 
 
 add_library(server_component SHARED src/server_component.cpp)
@@ -77,6 +106,8 @@ rclcpp sensor_msgs geometry_msgs nav_msgs std_msgs custom_interfaces tf2 tf2_ros
 
 install(TARGETS
   pre_approach
+  movetogoal
+  rotation
   server_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -86,5 +117,11 @@ install(TARGETS
   AttachServer
   DESTINATION lib/${PROJECT_NAME})
 
+
+# Install launch files.
+install(DIRECTORY
+  launch
+  DESTINATION share/${PROJECT_NAME}/
+)
 
 ament_package()

@@ -1,4 +1,4 @@
-#include "my_components/pre_approach.hpp"
+#include "my_components/rotation.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/utilities.hpp"
@@ -47,15 +47,14 @@ float degree_to_radian(float degree) { return degree / 180 * pi; }
 float radian_to_degree(float rad) { return rad / pi * 180; }
 
 
-//class PreApproach : public rclcpp::Node 
+//class Rotation : public rclcpp::Node 
 
-PreApproach::PreApproach(const rclcpp::NodeOptions& options) : Node("move_to_goal_node") {
+Rotation::Rotation(const rclcpp::NodeOptions& options) : Node("move_to_goal_node") {
 
 
     callback_group_1 = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
-    callback_group_2 = this->create_callback_group(
-        rclcpp::CallbackGroupType::MutuallyExclusive);
+
     callback_group_3 = this->create_callback_group(
         rclcpp::CallbackGroupType::MutuallyExclusive);
     
@@ -64,22 +63,16 @@ PreApproach::PreApproach(const rclcpp::NodeOptions& options) : Node("move_to_goa
     options3.callback_group = callback_group_3;
     subscription3_ = this->create_subscription<nav_msgs::msg::Odometry>(
         "/odom", 10,
-        std::bind(&PreApproach::odom_callback, this,
+        std::bind(&Rotation::odom_callback, this,
                   std::placeholders::_1),
         options3);
   
    target_yaw_rad_ = degree_to_radian(degrees);
 
 
-    rclcpp::SubscriptionOptions options2;
-    options2.callback_group = callback_group_2;
-    subscription2_ = this->create_subscription<sensor_msgs::msg::LaserScan>(
-        "scan", 10,
-        std::bind(&PreApproach::laser_callback, this, std::placeholders::_1),
-        options2);
 
     timer1_ = this->create_wall_timer(
-        100ms, std::bind(&PreApproach::timer1_callback, this),
+        100ms, std::bind(&Rotation::timer1_callback, this),
         callback_group_1);
     position_reached = false;
 
@@ -90,70 +83,19 @@ PreApproach::PreApproach(const rclcpp::NodeOptions& options) : Node("move_to_goa
   }
 
 
-void PreApproach::timer1_callback() {
-    if(!position_reached){
-    RCLCPP_INFO(this->get_logger(), "Timer move_to_goal Callback ");
-    this->move_robot(ling);
-    }else{
+void Rotation::timer1_callback() {
     RCLCPP_INFO(this->get_logger(), "Timer rotation Callback ");
     timer1_->cancel();
     //assert(false);
-    std::thread{std::bind(&PreApproach::execute, this)}.detach();
-    }
-
+    std::thread{std::bind(&Rotation::execute, this)}.detach();  
    
   }
 
-void PreApproach::laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-    RCLCPP_INFO(this->get_logger(), "Laser Callback Start");
-    float mid_radian = 0.43633333;
 
-    // RCLCPP_INFO(this->get_logger(), "there are %d range
-    // values",msg->ranges.size());
+void Rotation::move_robot(geometry_msgs::msg::Twist &msg) { publisher1_->publish(msg); }
 
 
-
-        if(is_wall_ahead(msg, mid_radian, this->obstacle)){
-            ling.linear.x = 0;
-            ling.angular.z = 0;
-            nstate = rotate;
-            RCLCPP_INFO(this->get_logger(), "WALL detected");
-            position_reached = true;
-        }else{
-            ling.linear.x = 0.5;
-            ling.angular.z = 0;
-            RCLCPP_INFO(this->get_logger(), "Clear road ahead");
-        }
-
-        if(nstate == PreApproach::nodeState::move_under_shelf){
-         rclcpp::shutdown();
-        }
-
-  
-  }
-void PreApproach::move_robot(geometry_msgs::msg::Twist &msg) { publisher1_->publish(msg); }
-
-bool PreApproach::is_wall_ahead(const sensor_msgs::msg::LaserScan::SharedPtr &msg, float mid_radian, float obstacle_thresh){
-      int number_of_mid_scan_lines = (int)(mid_radian/angle_increment); 
-      int begin_mid_scan_index = half_scan_index - int(number_of_mid_scan_lines/2);
-      int end_mid_scan_index=  half_scan_index + int(number_of_mid_scan_lines/2);
-      float average_range;
-      int total_lines=0;
-   
-     
-      for (int i = begin_mid_scan_index ; i< end_mid_scan_index ;i++){
-        total_lines++;
-        average_range += msg->ranges[i];
-      }
-      average_range /= total_lines;
-         RCLCPP_INFO(this->get_logger(), "begin_mid_scan_index %d end_mid_scan_index %d average_range %f",
-          begin_mid_scan_index, end_mid_scan_index, average_range);
-     return average_range < obstacle_thresh;// if average_range is less than threshold, then yes! wall ahead.
-  }
-
-
-
-void PreApproach::execute() {
+void Rotation::execute() {
     rclcpp::Rate loop_rate(1);
     RCLCPP_INFO(this->get_logger(), "My Callback execute() target %f, current %f ",target_yaw_rad_, current_yaw_rad_);
     while (!check_reached_goal_desire_angle() && rclcpp::ok()) {
@@ -178,10 +120,10 @@ void PreApproach::execute() {
     ling.linear.x = 0.0;
     ling.angular.z =0.0;
     move_robot(ling);
-    nstate = move_under_shelf;
+   rclcpp::shutdown();
   }
 
-void PreApproach::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+void Rotation::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     current_pos_ = msg->pose.pose.position;
     current_angle_ = msg->pose.pose.orientation;
     current_yaw_rad_ = yaw_theta_from_quaternion(
@@ -191,7 +133,7 @@ void PreApproach::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "current pos=['%f','%f','%f'",
                  current_pos_.x, current_pos_.y, current_yaw_rad_);
   }
-double PreApproach::yaw_theta_from_quaternion(float qx, float qy, float qz, float qw) {
+double Rotation::yaw_theta_from_quaternion(float qx, float qy, float qz, float qw) {
     double roll_rad, pitch_rad, yaw_rad;
     tf2::Quaternion odom_quat(qx, qy, qz, qw);
     tf2::Matrix3x3 matrix_tf(odom_quat);
@@ -199,11 +141,11 @@ double PreApproach::yaw_theta_from_quaternion(float qx, float qy, float qz, floa
     return yaw_rad; // In radian
   }
 
-bool PreApproach::check_reached_goal_desire_angle(float delta_error) {
+bool Rotation::check_reached_goal_desire_angle(float delta_error) {
     float delta_theta =  std::abs(radian_difference(target_yaw_rad_, current_yaw_rad_));
     return delta_theta < delta_error; // IN GOAL return true else false;
   }
-float PreApproach::radian_difference(float first, float second) {
+float Rotation::radian_difference(float first, float second) {
     return std::abs(first - second) <= pi ? first - second
                                             : (first - second) - 2 * pi;
   }
@@ -217,5 +159,5 @@ float PreApproach::radian_difference(float first, float second) {
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-RCLCPP_COMPONENTS_REGISTER_NODE(my_components::PreApproach)
-RCLCPP_COMPONENTS_REGISTER_NODE(my_components::PreApproach)
+RCLCPP_COMPONENTS_REGISTER_NODE(my_components::Rotation)
+RCLCPP_COMPONENTS_REGISTER_NODE(my_components::Rotation)
