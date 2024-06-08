@@ -76,6 +76,19 @@ ament_target_dependencies(rotation
 rclcpp_components_register_nodes(rotation "my_components::Rotation")
 set(node_plugins "${node_plugins}my_components::Rotation;$<TARGET_FILE:movetogoal>\n")
 
+add_library(service_client SHARED src/service_client.cpp)
+target_compile_definitions(service_client PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(service_client
+  "rclcpp"
+  "rclcpp_components"
+  "geometry_msgs"
+  "nav_msgs"
+  "custom_interfaces"
+  "sensor_msgs"
+  "tf2" 
+  "tf2_ros")
+rclcpp_components_register_nodes(service_client "my_components::ServiceClient")
+set(node_plugins "${node_plugins}my_components::ServiceClient;$<TARGET_FILE:movetogoal>\n")
 
 
 
@@ -108,6 +121,7 @@ install(TARGETS
   pre_approach
   movetogoal
   rotation
+  service_client
   server_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib

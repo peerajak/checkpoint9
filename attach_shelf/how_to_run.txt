@@ -52,6 +52,24 @@ ros2 launch attach_shelf attach_to_shelf_preapproach_v2_only.launch.py obstacle:
 ros2 launch attach_shelf attach_to_shelf.launch.py obstacle:=0.3 degrees:=-90 final_approach:=true
 
 
-
+----------------------------------------------------------------------------
 my_components
 ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args --remap cmd_vel:=/diffbot_base_controller/cmd_vel_unstamped
+
+
+
+== stage 1 ==
+Terminal1
+ros2 run rclcpp_components component_container
+Terminal2
+ros2 component load /ComponentManager my_components my_components::PreApproach
+
+== stage 2 ==
+1. server
+Terminal1
+ros2 run my_components AttachServer
+2. service_client
+Terminal2
+ros2 run rclcpp_components component_container
+Terminal3
+ros2 component load /ComponentManager my_components my_components::ServiceClient

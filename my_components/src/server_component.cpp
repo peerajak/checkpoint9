@@ -125,7 +125,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
         100ms, std::bind(&MidLegsTFService::timer1_callback, this),
         callback_group_1_timer);
     publisher_1_twist =
-        this->create_publisher<geometry_msgs::msg::Twist>("robot/cmd_vel", 10);
+        this->create_publisher<geometry_msgs::msg::Twist>("/diffbot_base_controller/cmd_vel_unstamped", 10);
     tf_buffer_move_robot1 = std::make_unique<tf2_ros::Buffer>(this->get_clock());
     tf_listener_move_robot1 = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_move_robot1 );
     tf_buffer_move_robot2 = std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -207,6 +207,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
 
   //------- 2. Odom related  Functions -----------//
   void MidLegsTFService::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+    RCLCPP_INFO(this->get_logger(), "Odom Callback Started");
     current_pos_ = msg->pose.pose.position;
     current_angle_ = msg->pose.pose.orientation;
     current_yaw_rad_ = yaw_theta_from_quaternion(
@@ -277,7 +278,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
 
   //------- 3. Laser related Functions -----------//
   void MidLegsTFService::laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
-
+    RCLCPP_INFO(this->get_logger(), "Laser Callback Started, nstate %s",nstate_string[nstate].c_str());
     switch (nstate) {
     case service_activated:
     {
@@ -395,14 +396,14 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
         tf2::Quaternion q_cart_laser;
         q_cart_laser.setRPY(cart_roll_laser, cart_pitch_laser, cart_yaw_laser);
 
-        // --------- TF2 Calculation of Laser Position w.r.t robot_odom
+        // --------- TF2 Calculation of Laser Position w.r.t odom
         // Coordinate
         // ------------//
 
         geometry_msgs::msg::TransformStamped tf_laser_to_odom;
         rclcpp::Time now = this->get_clock()->now();
         std::string fromFrame = "robot_front_laser_base_link";
-        std::string toFrame = "robot_odom";
+        std::string toFrame = "odom";
         try {
           tf_laser_to_odom = tf_buffer_->lookupTransform(toFrame, fromFrame,
                                                          tf2::TimePointZero);
@@ -429,9 +430,9 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
             transform * point_in_laser_coordinates;
         tf2::Quaternion q_cart_robotodom = transform * q_cart_laser;
 
-        //------------ broadcast TF cart to robot_odom
+        //------------ broadcast TF cart to odom
 
-        std::string fromFrameRel = "robot_odom";
+        std::string fromFrameRel = "odom";
         std::string toFrameRel = "cart_frame";
         geometry_msgs::msg::TransformStamped trans;
         rclcpp::Time now2 = this->get_clock()->now();
@@ -619,9 +620,13 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
                         const std::shared_ptr<GoToLoading::Response> response) {
 
     nstate = service_activated;
-    RCLCPP_INFO(this->get_logger(), "Service Callback, state is %d",nstate);
     attach_to_shelf = request->attach_to_shelf;
-    rclcpp::Rate rate(5); // ROS Rate at 5Hz
+    if(attach_to_shelf){
+            RCLCPP_INFO(this->get_logger(), "Service Callback, state is %d, attach_to_shelf = true",nstate);
+    } else{
+     RCLCPP_INFO(this->get_logger(), "Service Callback, state is %d, attach_to_shelf = false",nstate);
+    }
+    rclcpp::Rate rate(1); // ROS Rate at 5Hz
     //         request->laser_data.header.frame_id.c_str());
     while(!(nstate == service_completed_success || nstate == service_completed_failure))
     {
