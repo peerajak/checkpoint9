@@ -2,7 +2,7 @@
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/utilities.hpp"
-#include "std_msgs/msg/detail/empty__struct.hpp"
+#include "std_msgs/msg/detail/string__struct.hpp"
 #include "custom_interfaces/srv/go_to_loading.hpp"
 #include "geometry_msgs/msg/detail/point__struct.hpp"
 #include "geometry_msgs/msg/detail/quaternion__struct.hpp"
@@ -10,8 +10,7 @@
 #include "nav_msgs/msg/detail/odometry__struct.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
-#include "std_msgs/msg/detail/empty__struct.hpp"
-#include <std_msgs/msg/empty.hpp>
+#include <std_msgs/msg/string.hpp>
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2/LinearMath/Vector3.h"
@@ -58,8 +57,9 @@ void ServiceClient::response_callback(rclcpp::Client<GoToLoading>::SharedFuture 
       if (service_response->complete) {
         RCLCPP_INFO(this->get_logger(), "Result: success");
         // lift the cart
-        std_msgs::msg::Empty msgs_empty;
-        publisher_lift->publish(msgs_empty);
+        std_msgs::msg::String msgs_string;
+        msgs_string.data="";
+        publisher_lift->publish(msgs_string);
       } else {
         RCLCPP_INFO(this->get_logger(), "Result: failure");
       }
@@ -77,7 +77,7 @@ ServiceClient::ServiceClient(const rclcpp::NodeOptions &options) : Node("service
     timer_ = this->create_wall_timer(
         1s, std::bind(&ServiceClient::timer_callback, this));
     publisher_lift =
-        this->create_publisher<std_msgs::msg::Empty>("/elevator_up", 1);
+        this->create_publisher<std_msgs::msg::String>("/elevator_up", 1);
   }
 
 }

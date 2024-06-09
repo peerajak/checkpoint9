@@ -16,7 +16,7 @@
 #include <cassert>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
-#include <std_msgs/msg/empty.hpp>
+
 
 using namespace std::chrono_literals;
 
@@ -166,11 +166,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
     tf_4_static_broadcaster_ =
         std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
 
-    //--------5. load/ unload related ----------//
-    publisher_5_load =
-        this->create_publisher<std_msgs::msg::Empty>("elevator_up", 10);
-    publisher_5_unload =
-        this->create_publisher<std_msgs::msg::Empty>("elevator_down", 10);
+
 
 
   }
@@ -498,7 +494,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
       {
               RCLCPP_INFO(this->get_logger(), "Laser Callback End, state is %s",nstate_string[nstate].c_str());
     std::string fromFrame_tomoveto = "cart_frame";
-    std::string toFrame_tofollow = "robot_base_link";
+    std::string toFrame_tofollow = "robot_evelator_base_link";
     geometry_msgs::msg::TransformStamped ttt;
         try {
             rclcpp::Time now = this->get_clock()->now();
@@ -516,12 +512,12 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
             RCLCPP_INFO(this->get_logger(), "ttt.x: %f, ttt.y: %f, atan radian %f",
             ttt.transform.translation.x,ttt.transform.translation.y, atan(
             ttt.transform.translation.y/ttt.transform.translation.x));  
-            double scaleRotationRate = 0.6;
-             double scaleForwardSpeed = 1.0;
-            //double magnitude_of_ttt_linear = magnitude_of_vector(ttt.transform.translation.x,ttt.transform.translation.y);
-            ling.linear.x = scaleForwardSpeed *  ttt.transform.translation.x;
+            double scaleRotationRate = 0.8;
+            double scaleForwardSpeed = 1.0;
+            ling.linear.x = scaleForwardSpeed * ttt.transform.translation.x;
+  
             ling.linear.y = 0;
-            if(abs(ttt.transform.translation.x) < 0.01){
+            if(abs(ttt.transform.translation.x) < 0.02){
                double target_yaw_rad = yaw_theta_from_quaternion(
                 ttt.transform.rotation.x, ttt.transform.rotation.y,
                 ttt.transform.rotation.z, ttt.transform.rotation.w);
@@ -548,7 +544,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
 
             
      std::string fromFrame_tomoveto2 = "obstacle_frame";
-    std::string toFrame_tofollow2 = "robot_base_link";
+    std::string toFrame_tofollow2 = "robot_evelator_base_link";
     geometry_msgs::msg::TransformStamped ttt2;
         try {
             rclcpp::Time now = this->get_clock()->now();
@@ -564,21 +560,23 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
             }
           
        
-            double scaleRotationRate = 0.6;
+            double scaleRotationRate = 0.8;
             double target_yaw_rad = yaw_theta_from_quaternion(
             ttt2.transform.rotation.x, ttt2.transform.rotation.y,
             ttt2.transform.rotation.z, ttt2.transform.rotation.w);
             ling.angular.z = scaleRotationRate*target_yaw_rad;   
-            double scaleForwardSpeed = 1.0;
+            double scaleForwardSpeed = 1.2;
+            if(ttt2.transform.translation.x < 0.02) scaleForwardSpeed = 3;
             ling.linear.x = scaleForwardSpeed * ttt2.transform.translation.x;
             ling.linear.y = 0;
             RCLCPP_INFO(this->get_logger(), "ttt2.x: %f, ttt2.y: %f",ttt2.transform.translation.x,ttt2.transform.translation.y);    
                
            RCLCPP_INFO(this->get_logger(), "current pos=['%f','%f'",
                  current_pos_.x, current_pos_.y); 
-          RCLCPP_INFO(this->get_logger(), "k_point_in_odom_coordinates position in odom cooordinate x: %f, y: %f",
+          RCLCPP_INFO(this->get_logger(), "k_point x: %f, y: %f",
          k_point_in_odom_coordinates.getX(),k_point_in_odom_coordinates.getY());  
-            if(abs(ttt2.transform.translation.x) < 0.008){
+         double tolerance_threshold = 0.01;
+            if(abs(ttt2.transform.translation.x) < tolerance_threshold){
             ling.linear.x = 0;
             ling.linear.y = 0;
             ling.linear.z = 0;
@@ -626,7 +624,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
     } else{
      RCLCPP_INFO(this->get_logger(), "Service Callback, state is %d, attach_to_shelf = false",nstate);
     }
-    rclcpp::Rate rate(1); // ROS Rate at 5Hz
+    rclcpp::Rate rate(5); // ROS Rate at 5Hz
     //         request->laser_data.header.frame_id.c_str());
     while(!(nstate == service_completed_success || nstate == service_completed_failure))
     {

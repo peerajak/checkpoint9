@@ -48,7 +48,7 @@ private:
   rclcpp::TimerBase::SharedPtr timer1_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher1_;
   rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr subscription3_;
-  float obstacle = 0.3;
+  float obstacle = 0.4;
   float degrees = -90.0;
 
   void execute();

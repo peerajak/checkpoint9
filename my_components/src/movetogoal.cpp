@@ -95,7 +95,7 @@ void MoveToGoal::laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg
                      rclcpp::shutdown();
 
         }else{
-            ling.linear.x = 0.5;
+            ling.linear.x = 0.3;
             ling.angular.z = 0;
             RCLCPP_INFO(this->get_logger(), "Clear road ahead");
         }

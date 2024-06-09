@@ -52,7 +52,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr publisher1_;
   rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr subscription2_;
 
-  float obstacle = 0.3;
+  float obstacle = 0.4;
   float degrees = -90.0;
 
 };

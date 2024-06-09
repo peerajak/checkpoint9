@@ -9,6 +9,7 @@ from launch.events import Shutdown
 from launch.substitutions import (EnvironmentVariable, FindExecutable,
                                 LaunchConfiguration, LocalSubstitution,
                                 PythonExpression)
+from launch_ros.actions import Node
 
 def generate_launch_description():
     """Generate launch description with multiple components."""
@@ -51,17 +52,19 @@ def generate_launch_description():
                 ComposableNode(
                     package='my_components',
                     plugin='my_components::ServiceClient',
-                    name='service_client'),
-                ComposableNode(
-                    package='my_components',
-                    plugin='my_components::MidLegsTFService',
-                    name='server_component'),
+                    name='service_client')
             ],
             output='screen',
     )
 
+    server_node = Node(
+        package='my_components',
+        executable='AttachServer',
+        output='screen',
+        emulate_tty=True
+        )
 
-    return launch.LaunchDescription([container1,
+    return launch.LaunchDescription([container1, 
             RegisterEventHandler(
             OnProcessExit(
                 target_action=container1,
@@ -75,7 +78,8 @@ def generate_launch_description():
             OnProcessExit(
                 target_action=container2,
                 on_exit=[
-                    LogInfo(msg=('event handler start container3')),
+                    LogInfo(msg=('event handler start container3, and server')),
+                    server_node,
                     container3
                 ]
             )

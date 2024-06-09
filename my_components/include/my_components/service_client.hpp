@@ -11,7 +11,7 @@
 #include "rclcpp/utilities.hpp"
 #include "sensor_msgs/msg/detail/laser_scan__struct.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
-#include "std_msgs/msg/detail/empty__struct.hpp"
+#include "std_msgs/msg/detail/string__struct.hpp"
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Quaternion.h"
 #include "tf2/LinearMath/Vector3.h"
@@ -21,7 +21,7 @@
 #include <cmath>
 #include <geometry_msgs/msg/point.h>
 #include <rclcpp/rclcpp.hpp>
-#include <std_msgs/msg/empty.hpp>
+#include <std_msgs/msg/string.hpp>
 using std::placeholders::_1;
 using GoToLoading = custom_interfaces::srv::GoToLoading;
 using namespace std::chrono_literals;
@@ -32,11 +32,11 @@ namespace my_components {
 class ServiceClient : public rclcpp::Node {
 private:
   bool final_approach = true;
-  float obstacle = 0.3;
+  float obstacle = 0.4;
   float degrees = -90.0;
   rclcpp::Client<GoToLoading>::SharedPtr client_;
   rclcpp::TimerBase::SharedPtr timer_;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr publisher_lift;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr publisher_lift;
 
   void timer_callback();
   void response_callback(rclcpp::Client<GoToLoading>::SharedFuture future);

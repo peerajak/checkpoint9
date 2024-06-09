@@ -19,7 +19,7 @@
 #include <cassert>
 #include <memory>
 #include <nav_msgs/msg/odometry.hpp>
-#include <std_msgs/msg/empty.hpp>
+
 
 using namespace std::chrono_literals;
 
@@ -105,7 +105,7 @@ private:
   std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_static_publisher_;
-  double obstacle = 0.3;
+  double obstacle = 0.4;
   bool tf_published;
   tf2::Vector3 k_point_in_odom_coordinates;
   //------- 3. Laser related  -----------//
@@ -118,9 +118,7 @@ private:
   rclcpp::Service<GoToLoading>::SharedPtr srv_4_service;
   std::shared_ptr<tf2_ros::StaticTransformBroadcaster> tf_4_static_broadcaster_;
 
-  //--------5. load/ unload related ----------//
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr publisher_5_load;
-  rclcpp::Publisher<std_msgs::msg::Empty>::SharedPtr publisher_5_unload;
+
 
   //--------- Private Methods --------------------//
   //------- 1. timer_1 related Functions -----------//
