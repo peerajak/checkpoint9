@@ -23,14 +23,28 @@ def generate_launch_description():
             composable_node_descriptions=[
                 ComposableNode(
                     package='my_components',
-                    plugin='my_components::PreApproach',
-                    name='pre_approach'),
+                    plugin='my_components::MoveToGoal',
+                    name='movetogoal'),
             ],
             output='screen',
     )
 
     container2 = ComposableNodeContainer(
             name='my_container2',
+            namespace='',
+            package='rclcpp_components',
+            executable='component_container',
+            composable_node_descriptions=[
+                ComposableNode(
+                    package='my_components',
+                    plugin='my_components::Rotation',
+                    name='rotation'),
+            ],
+            output='screen',
+    )
+
+    container3 = ComposableNodeContainer(
+            name='my_container3',
             namespace='',
             package='rclcpp_components',
             executable='component_container',
@@ -56,9 +70,18 @@ def generate_launch_description():
                 target_action=container1,
                 on_exit=[
                     LogInfo(msg=('event handler start container2')),
-                    server_node,
                     container2
                 ]
             )
-        ) 
+        ), 
+            RegisterEventHandler(
+            OnProcessExit(
+                target_action=container2,
+                on_exit=[
+                    LogInfo(msg=('event handler start container3, and server')),
+                    server_node,
+                    container3
+                ]
+            )
+        ),   
     ])

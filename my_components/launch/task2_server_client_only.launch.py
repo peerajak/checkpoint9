@@ -24,7 +24,7 @@ def generate_launch_description():
             composable_node_descriptions=[
                 ComposableNode(
                     package='my_components',
-                    plugin='my_components::ServiceClient',
+                    plugin='my_components::AttachClient',
                     name='service_client'),
                 ComposableNode(
                     package='my_components',

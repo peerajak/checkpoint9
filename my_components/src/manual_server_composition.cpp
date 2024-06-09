@@ -11,7 +11,7 @@ void mySigintHandler(int sig) {
 int main(int argc, char *argv[]) {
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions options;
-  auto attach_shelf_service_server = std::make_shared<my_components::MidLegsTFService>(options);
+  auto attach_shelf_service_server = std::make_shared<my_components::AttachServer>(options);
   rclcpp::executors::MultiThreadedExecutor executor;
   signal(SIGINT, mySigintHandler);
   executor.add_node(attach_shelf_service_server);

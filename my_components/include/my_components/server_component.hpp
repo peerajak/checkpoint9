@@ -62,9 +62,9 @@ private:
 };
 
 
-class MidLegsTFService : public rclcpp::Node {
+class AttachServer : public rclcpp::Node {
 public:
-  MidLegsTFService(const rclcpp::NodeOptions&);
+  AttachServer(const rclcpp::NodeOptions&);
 private:
   //------- 0. internal use --------------//
   enum serviceState {

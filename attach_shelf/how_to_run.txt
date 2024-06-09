@@ -67,9 +67,9 @@ ros2 component load /ComponentManager my_components my_components::PreApproach
 == stage 2 ==
 1. server
 Terminal1
-ros2 run my_components AttachServer
+ros2 run my_components AttachServerNode
 2. service_client
 Terminal2
 ros2 run rclcpp_components component_container
 Terminal3
-ros2 component load /ComponentManager my_components my_components::ServiceClient
+ros2 component load /ComponentManager my_components my_components::AttachClient

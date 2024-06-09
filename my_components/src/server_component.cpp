@@ -102,7 +102,7 @@ std::tuple<double, double> group_of_laser::get_max_radian_of_the_group_and_corre
   }
 
 
-MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("mid_legs_tf_service_node") {
+AttachServer::AttachServer(const rclcpp::NodeOptions& options) : Node("mid_legs_tf_service_node") {
     //------ 0. internal members ----------------//
 
 
@@ -122,7 +122,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
 
     //------- 1. timer_1 related -----------//
     timer1_ = this->create_wall_timer(
-        100ms, std::bind(&MidLegsTFService::timer1_callback, this),
+        100ms, std::bind(&AttachServer::timer1_callback, this),
         callback_group_1_timer);
     publisher_1_twist =
         this->create_publisher<geometry_msgs::msg::Twist>("/diffbot_base_controller/cmd_vel_unstamped", 10);
@@ -137,7 +137,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
     options2_odom.callback_group = callback_group_2_odom;
     subscription_2_odom = this->create_subscription<nav_msgs::msg::Odometry>(
         "/odom", 10,
-        std::bind(&MidLegsTFService::odom_callback, this,
+        std::bind(&AttachServer::odom_callback, this,
                   std::placeholders::_1),
         options2_odom);
     tf_static_publisher_ = std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
@@ -150,7 +150,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
     subscription_3_laser =
         this->create_subscription<sensor_msgs::msg::LaserScan>(
             "scan", 10,
-            std::bind(&MidLegsTFService::laser_callback, this,
+            std::bind(&AttachServer::laser_callback, this,
                       std::placeholders::_1),
             options3_laser);
 
@@ -161,7 +161,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
     // options4_service.callback_group = callback_group_4_service;
     srv_4_service = create_service<GoToLoading>(
         "approach_shelf",
-        std::bind(&MidLegsTFService::service_callback, this, _1, _2),
+        std::bind(&AttachServer::service_callback, this, _1, _2),
         qos_profile.get_rmw_qos_profile(), callback_group_4_service);
     tf_4_static_broadcaster_ =
         std::make_shared<tf2_ros::StaticTransformBroadcaster>(this);
@@ -171,9 +171,9 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
 
   }
 
-  //--------- MidLegsTFService::Private Methods --------------------//
+  //--------- AttachServer::Private Methods --------------------//
   //------- 1. timer_1 related Functions -----------//
-  void MidLegsTFService::timer1_callback() {
+  void AttachServer::timer1_callback() {
     RCLCPP_DEBUG(this->get_logger(), "Timer 1 Callback Start");
     if (nstate == approach_shelf || nstate == approach_shelf2) {    
 
@@ -195,14 +195,14 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
              
   }
   
-  void MidLegsTFService::move_robot(geometry_msgs::msg::Twist &msg) {
+  void AttachServer::move_robot(geometry_msgs::msg::Twist &msg) {
     publisher_1_twist->publish(msg);
   }
 
 
 
   //------- 2. Odom related  Functions -----------//
-  void MidLegsTFService::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
+  void AttachServer::odom_callback(const nav_msgs::msg::Odometry::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Odom Callback Started");
     current_pos_ = msg->pose.pose.position;
     current_angle_ = msg->pose.pose.orientation;
@@ -214,7 +214,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
                  current_pos_.x, current_pos_.y, current_yaw_rad_);
   }
   
-  double MidLegsTFService::yaw_theta_from_quaternion(double qx, double qy, double qz, double qw) {
+  double AttachServer::yaw_theta_from_quaternion(double qx, double qy, double qz, double qw) {
     double roll_rad, pitch_rad, yaw_rad;
     tf2::Quaternion odom_quat(qx, qy, qz, qw);
     tf2::Matrix3x3 matrix_tf(odom_quat);
@@ -222,7 +222,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
     return yaw_rad; // In radian
   }
 
-  std::tuple<double, double> MidLegsTFService::get_p1_to_p2_perpendicular_vector_laser_coordinate(
+  std::tuple<double, double> AttachServer::get_p1_to_p2_perpendicular_vector_laser_coordinate(
       double p1x_laser, double p1y_laser, double p2x_laser, double p2y_laser) {
     double p1_to_p2_laser_x = p2x_laser - p1x_laser;
     double p1_to_p2_laser_y = p2y_laser - p1y_laser;
@@ -232,7 +232,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
                                       perpen_l1_to_l2_laser_y};
   }
 
-  double MidLegsTFService::yaw_degree_radian_between_perpendicular_and_laser_x(
+  double AttachServer::yaw_degree_radian_between_perpendicular_and_laser_x(
       double p1p2_perpendicular_x_laser, double p1p2_perpendicular_y_laser) {
     double x_laser = 1.0;
     double y_laser = 0;
@@ -250,7 +250,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
                      (size_of_p1p2_perpendicular_laser * size_of_x_laser));
   }
 
-  std::tuple<double, double> MidLegsTFService::get_obstacle_cm_into_obstacle(
+  std::tuple<double, double> AttachServer::get_obstacle_cm_into_obstacle(
       double p1_to_p2_perpendicular_vector_x_laser_coordinate,
       double p1_to_p2_perpendicular_vector_y_laser_coordinate,
       double pmid_x_laser_coordinate, double pmid_y_laser_coordinate) {
@@ -273,7 +273,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
   }
 
   //------- 3. Laser related Functions -----------//
-  void MidLegsTFService::laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
+  void AttachServer::laser_callback(const sensor_msgs::msg::LaserScan::SharedPtr msg) {
     RCLCPP_INFO(this->get_logger(), "Laser Callback Started, nstate %s",nstate_string[nstate].c_str());
     switch (nstate) {
     case service_activated:
@@ -522,7 +522,8 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
                 ttt.transform.rotation.x, ttt.transform.rotation.y,
                 ttt.transform.rotation.z, ttt.transform.rotation.w);
                ling.angular.z = scaleRotationRate*target_yaw_rad;  
-               if(abs(ttt.transform.translation.x) < 0.01 && target_yaw_rad <0.05){
+               RCLCPP_INFO(this->get_logger(), "target_yaw_rad: %f,",target_yaw_rad);
+               if(abs(ttt.transform.translation.x) < 0.01 && target_yaw_rad <0.1){
                   nstate = approach_shelf2;
                }            
            } else {
@@ -614,7 +615,7 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
   }
 
   //--------4. Service related Functions-----------//
-  void MidLegsTFService::service_callback(const std::shared_ptr<GoToLoading::Request> request,
+  void AttachServer::service_callback(const std::shared_ptr<GoToLoading::Request> request,
                         const std::shared_ptr<GoToLoading::Response> response) {
 
     nstate = service_activated;
@@ -654,4 +655,4 @@ MidLegsTFService::MidLegsTFService(const rclcpp::NodeOptions& options) : Node("m
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-RCLCPP_COMPONENTS_REGISTER_NODE(my_components::MidLegsTFService)
+RCLCPP_COMPONENTS_REGISTER_NODE(my_components::AttachServer)

@@ -76,9 +76,9 @@ ament_target_dependencies(rotation
 rclcpp_components_register_nodes(rotation "my_components::Rotation")
 set(node_plugins "${node_plugins}my_components::Rotation;$<TARGET_FILE:movetogoal>\n")
 
-add_library(service_client SHARED src/service_client.cpp)
-target_compile_definitions(service_client PRIVATE "COMPOSITION_BUILDING_DLL")
-ament_target_dependencies(service_client
+add_library(AttachClient SHARED src/attach_client.cpp)
+target_compile_definitions(AttachClient PRIVATE "COMPOSITION_BUILDING_DLL")
+ament_target_dependencies(AttachClient
   "rclcpp"
   "rclcpp_components"
   "geometry_msgs"
@@ -87,8 +87,8 @@ ament_target_dependencies(service_client
   "sensor_msgs"
   "tf2" 
   "tf2_ros")
-rclcpp_components_register_nodes(service_client "my_components::ServiceClient")
-set(node_plugins "${node_plugins}my_components::ServiceClient;$<TARGET_FILE:movetogoal>\n")
+rclcpp_components_register_nodes(AttachClient "my_components::AttachClient")
+set(node_plugins "${node_plugins}my_components::AttachClient;$<TARGET_FILE:movetogoal>\n")
 
 
 
@@ -104,15 +104,15 @@ ament_target_dependencies(server_component
   "rclcpp"
   "rclcpp_components"
   "geometry_msgs")
-rclcpp_components_register_nodes(server_component "my_components::MidLegsTFService")
-set(node_plugins "${node_plugins}my_components::MidLegsTFService;$<TARGET_FILE:server_component>\n")
+rclcpp_components_register_nodes(server_component "my_components::AttachServer")
+set(node_plugins "${node_plugins}my_components::AttachServer;$<TARGET_FILE:server_component>\n")
 
-add_executable(AttachServer
+add_executable(AttachServerNode
   src/manual_server_composition.cpp)
-target_link_libraries(AttachServer
+target_link_libraries(AttachServerNode
 server_component
 )
-ament_target_dependencies(AttachServer
+ament_target_dependencies(AttachServerNode
 rclcpp sensor_msgs geometry_msgs nav_msgs std_msgs custom_interfaces tf2 tf2_ros)
 
 
@@ -121,14 +121,14 @@ install(TARGETS
   pre_approach
   movetogoal
   rotation
-  service_client
+  AttachClient
   server_component
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
 
 install(TARGETS
-  AttachServer
+  AttachServerNode
   DESTINATION lib/${PROJECT_NAME})
 
 

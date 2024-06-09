@@ -1,4 +1,4 @@
-#include "my_components/service_client.hpp"
+#include "my_components/attach_client.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/utilities.hpp"
@@ -30,7 +30,7 @@ using namespace std::chrono_literals;
 
 namespace my_components
 {
-void ServiceClient::timer_callback() {
+void AttachClient::timer_callback() {
     while (!client_->wait_for_service(1s)) {
       if (!rclcpp::ok()) {
         RCLCPP_ERROR(
@@ -46,11 +46,11 @@ void ServiceClient::timer_callback() {
     request->attach_to_shelf = final_approach;
 
     auto result_future = client_->async_send_request(
-        request, std::bind(&ServiceClient::response_callback, this,
+        request, std::bind(&AttachClient::response_callback, this,
                            std::placeholders::_1));
     timer_->cancel();
   }
-void ServiceClient::response_callback(rclcpp::Client<GoToLoading>::SharedFuture future) {
+void AttachClient::response_callback(rclcpp::Client<GoToLoading>::SharedFuture future) {
     auto status = future.wait_for(1s);
     if (status == std::future_status::ready) {
       auto service_response = future.get();
@@ -70,12 +70,12 @@ void ServiceClient::response_callback(rclcpp::Client<GoToLoading>::SharedFuture 
     }
   }
 
-ServiceClient::ServiceClient(const rclcpp::NodeOptions &options) : Node("service_client") {
+AttachClient::AttachClient(const rclcpp::NodeOptions &options) : Node("service_client") {
 
 
     client_ = this->create_client<GoToLoading>("approach_shelf");
     timer_ = this->create_wall_timer(
-        1s, std::bind(&ServiceClient::timer_callback, this));
+        1s, std::bind(&AttachClient::timer_callback, this));
     publisher_lift =
         this->create_publisher<std_msgs::msg::String>("/elevator_up", 1);
   }
@@ -85,5 +85,5 @@ ServiceClient::ServiceClient(const rclcpp::NodeOptions &options) : Node("service
 
 #include "rclcpp_components/register_node_macro.hpp"
 
-RCLCPP_COMPONENTS_REGISTER_NODE(my_components::ServiceClient)
-RCLCPP_COMPONENTS_REGISTER_NODE(my_components::ServiceClient)
+RCLCPP_COMPONENTS_REGISTER_NODE(my_components::AttachClient)
+RCLCPP_COMPONENTS_REGISTER_NODE(my_components::AttachClient)
