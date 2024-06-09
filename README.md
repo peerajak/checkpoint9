@@ -1,4 +1,6 @@
-# checkpoint9
+# checkpoint9 and 10
+
+for checkpoint10, goto my_components folder.
 
 ## Task1 Preapproach
 
