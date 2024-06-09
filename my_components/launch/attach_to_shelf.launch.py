@@ -29,22 +29,23 @@ def generate_launch_description():
             output='screen',
     )
 
-    container2 = ComposableNodeContainer(
-            name='my_container2',
-            namespace='',
-            package='rclcpp_components',
-            executable='component_container',
-            composable_node_descriptions=[
-                ComposableNode(
-                    package='my_components',
-                    plugin='my_components::AttachClient',
-                    name='service_client')
-            ],
-            output='screen',
-    )
+    #container2 = ComposableNodeContainer(
+    #        name='my_container2',
+    #        namespace='',
+    #        package='rclcpp_components',
+    #        executable='component_container',
+    #        composable_node_descriptions=[
+    #            ComposableNode(
+    #                package='my_components',
+    #                plugin='my_components::AttachClient',
+    #                name='service_client')
+    #        ],
+    #        output='screen',
+    #)
 
     server_node = Node(
         package='my_components',
+        name='my_container',
         executable='AttachServerNode',
         output='screen',
         emulate_tty=True
@@ -55,9 +56,9 @@ def generate_launch_description():
             OnProcessExit(
                 target_action=container1,
                 on_exit=[
-                    LogInfo(msg=('event handler start container2')),
-                    server_node,
-                    container2
+                    LogInfo(msg=('event handler start server')),
+                    server_node
+                    #,container2
                 ]
             )
         ) 
