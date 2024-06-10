@@ -16,7 +16,7 @@ def generate_launch_description():
     #LogInfo(msg=(EnvironmentVariable(name='USER'),
     #                        'starting')),
     container1 = ComposableNodeContainer(
-            name='my_container',
+            name='pre_approach',
             namespace='',
             package='rclcpp_components',
             executable='component_container',
@@ -26,40 +26,37 @@ def generate_launch_description():
                     plugin='my_components::PreApproach',
                     name='pre_approach'),
             ],
-            output='screen',
+            output='screen'
     )
+   
+   # exec ros2 run rclcpp_components component_container
+    component_container_manager = ExecuteProcess(
+    cmd=[[
+        'ros2 run rclcpp_components component_container --ros-args -r __node:=my_container'
+    ]],
+    shell=True
+    )  
 
-    #container2 = ComposableNodeContainer(
-    #        name='my_container2',
-    #        namespace='',
-    #        package='rclcpp_components',
-    #        executable='component_container',
-    #        composable_node_descriptions=[
-    #            ComposableNode(
-    #                package='my_components',
-    #                plugin='my_components::AttachClient',
-    #                name='service_client')
-    #        ],
-    #        output='screen',
-    #)
 
     server_node = Node(
         package='my_components',
-        name='my_container',
+        name='attach_server',
         executable='AttachServerNode',
         output='screen',
         emulate_tty=True
         )
 
-    return launch.LaunchDescription([container1, 
-            RegisterEventHandler(
-            OnProcessExit(
-                target_action=container1,
-                on_exit=[
-                    LogInfo(msg=('event handler start server')),
-                    server_node
-                    #,container2
-                ]
-            )
-        ) 
+    return launch.LaunchDescription([#            
+            container1,
+            component_container_manager,
+            server_node
+            #RegisterEventHandler(
+            #OnProcessExit(
+            #    target_action=container1,
+            #    on_exit=[
+            #        LogInfo(msg=('event handler start server')),
+            #        #,container2
+            #    ]
+            #)
+        #) 
     ])
