@@ -93,6 +93,11 @@ or
 ros2 launch attach_shelf attach_to_shelf.launch.py obstacle:=0.3 degrees:=-90 final_approach:=true
 ```
 
+to View TF frames
+
+```
+ros2 run tf2_tools view_frames
+```
 
 My Result
 - final_approach:=false. Expect to return service_failure, but the TF to cart_frame established between cart's two legs.
